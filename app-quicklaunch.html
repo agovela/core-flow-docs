@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>QuickLaunch — Core Flow Tools Docs</title>
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/img/coreflow-logo.png" alt="">
+      <a href="index.html">Core Flow Tools<span class="tag">Technical Docs</span></a>
+    </div>
+    <div class="case-study-link">
+      <a href="../">&larr; Core Flow Tools Case Study</a>
+    </div>
+    <div class="nav-group">
+      <h6>Overview</h6>
+      <ul><li><a href="index.html">Home</a></li></ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
+      <ul>
+        <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-character-setup.html">Character Setup</a></li>
+        <li><a href="app-quicklaunch.html" class="active">QuickLaunch</a></li>
+        <li><a href="app-utilities.html">Utilities</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
+      <ul>
+        <li><a href="app-ai-companion.html">AI Companion</a></li>
+        <li><a href="api-clips.html">ClipsAPI</a></li>
+        <li><a href="api-ai-providers.html">AI Provider Backend</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">3</span>Shared Foundation</h6>
+      <ul><li><a href="framework.html">Framework</a></li></ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="doc-header">
+      <div class="tier-pill applications">Tier 1 &middot; Applications</div>
+      <div class="kicker">Shell Integration</div>
+      <div class="title-row">
+        <img class="app-icon" src="assets/img/icon-quicklaunch.png" alt="">
+        <h1>QuickLaunch</h1>
+      </div>
+      <p class="sub" style="margin-top:14px"><code>dcc/maya/quicklaunch/</code> &mdash; not a separate
+      window at all, but a small row of icon "stacks" permanently embedded
+      into Maya's own native ToolBox (the vertical toolbar on the left edge
+      of the UI, usually holding select/move/rotate/scale), appended after a
+      separator at the bottom of it. It's meant to look like a native part
+      of the ToolBox rather than a bolted-on custom panel &mdash; it
+      deliberately does <strong>not</strong> apply the full
+      <code>theme.MAIN_STYLE</code> (tooltips and icon chrome stay native Maya
+      styling on purpose), but it does carry the thin
+      <a href="framework.html#the-signature-outline">signature outline</a>
+      around its own edge, the one piece of shared branding every application
+      in the suite carries.</p>
+    </header>
+
+    <h2 id="using-it">Using it</h2>
+    <p>Each configured <strong>group</strong> ("stack") renders as one icon:</p>
+    <ul>
+      <li><strong>Left-click</strong> the icon &mdash; runs that group's
+        first/primary tool. If the group has no tools assigned yet,
+        left-click opens the <a href="#the-configure-dialog">Configure
+        dialog</a> instead.</li>
+      <li><strong>Hover</strong> the icon &mdash; if the group has more than one
+        tool, a small floating popup of the remaining tools' icons appears
+        beside it, each individually clickable. The popup collapses about
+        200ms after the mouse leaves both the stack and the popup (unless a
+        context menu is open on it).</li>
+      <li><strong>Right-click</strong> the icon &mdash; Rename Group..., a
+        <strong>Presets</strong> submenu (see below), Configure QuickLaunch...,
+        Remove Group.</li>
+    </ul>
+
+    <h2 id="the-configure-dialog">The Configure dialog</h2>
+    <p>Opened via right-click &gt; "Configure QuickLaunch..." (or by
+    clicking an empty placeholder icon).</p>
+    <div class="icon-note">Window icon: <code>menu_query.DEFAULT_ICON</code>
+    (<code>dcc/maya/icons/CF_QuickLaunch.png</code>, CF Clean 256 icon set)
+    &mdash; the same file used as the fallback icon for any menu_tools
+    launcher with no icon of its own, and as QuickLaunch's own default stack
+    icon (see <a href="framework.html#menu-discovery">Menu discovery</a>),
+    so there's one canonical asset for all three roles.</div>
+    <p>A drag-and-drop editor with two panes:</p>
+    <ul>
+      <li><strong>Left ("TOOLS")</strong> &mdash; every discoverable launcher
+        tool (same tree <code>menu_query.py</code> builds for the main menu &mdash;
+        see <a href="framework.html#menu-discovery">Menu discovery</a>),
+        organized by folder, with a live filter box. Drag source only.</li>
+      <li><strong>Right ("QUICKLAUNCH")</strong> &mdash; the current
+        groups/stacks tree. Top-level items are groups, children are the
+        tools in that group. Accepts drops from the left pane (adds to the
+        target group, or creates a new group if dropped on empty space), and
+        supports drag-reordering within itself.</li>
+    </ul>
+    <p>Buttons: Add Group, Move Up, Move Down, Remove, Clear All, plus the
+    <a href="#presets">Presets</a> controls, and a single primary "Done"
+    button.</p>
+    <p>Dragging a tool out of its group to the top level wraps it into its
+    own new single-tool group rather than losing it &mdash; the underlying
+    data model has no way to represent "a bare tool with no group."</p>
+    <p>The dialog's layout is loaded from a runtime-parsed <code>.ui</code> file
+    rather than a pre-compiled Python form (an accepted tradeoff since this
+    isn't a hot path) &mdash; the two drag-drop tree widgets can't be declared
+    in the <code>.ui</code> itself (<code>QUiLoader</code> can't construct custom
+    Python widget subclasses), so the <code>.ui</code> only holds placeholder
+    <code>QWidget</code>s that get swapped for the real tree instances after
+    loading.</p>
+
+    <h2 id="presets">Presets</h2>
+    <p>A <strong>preset is a whole saved layout</strong> &mdash; a named snapshot of
+    every configured group at once &mdash; not a per-tool bookmark. Save / Load
+    / Delete live in the Configure dialog via a combo box, and Load is also
+    reachable from any single stack's own right-click Presets submenu.</p>
+    <div class="note warn">
+      <strong>Loading a preset replaces the entire QuickLaunch layout</strong>,
+      not just the group you right-clicked &mdash; a right-click on one icon
+      can visibly change every other icon too. This is intentional, matching
+      the same "load = replace everything" behavior the icon-launcher
+      pattern it's descended from has always had.
+    </div>
+    <p>Presets are stored as individual JSON files
+    (<code>quicklaunch/presets/&lt;name&gt;.json</code>, <code>{"name": ...,
+    "stacks": [...]}</code>) &mdash; plain files you could hand-edit or check
+    into source control if a team wants to ship a shared default layout.</p>
+
+    <h2 id="how-it-embeds">How it embeds into Maya's UI</h2>
+    <p><code>toolbar.install()</code> finds Maya's native <code>ToolBox</code>
+    widget and, inside it, a specific child layout (<code>"flowLayout2"</code>,
+    a Maya-internal flow layout exposed to Python only as a generic
+    <code>QLayout</code>). It appends a separator plus the QuickLaunch widget
+    itself.</p>
+    <p>Two confirmed-live constraints worth knowing if you ever touch this:</p>
+    <ul>
+      <li><strong>Only append/remove is safe.</strong> <code>addWidget()</code>/<code>removeWidget()</code>
+        on <code>flowLayout2</code> work; mid-layout insertion or reordering
+        does not (a previously confirmed-broken attempt is why this
+        constraint is called out explicitly in the code).</li>
+      <li><strong><code>remove()</code> is written defensively against dangling Qt
+        wrappers.</strong> <code>deleteLater()</code> only <em>schedules</em>
+        destruction &mdash; a widget found via <code>findChild()</code> on a later
+        call may already be a Python wrapper around an already-destroyed C++
+        object, raising "Internal C++ object already deleted." Every
+        lookup/delete in <code>remove()</code> is wrapped in
+        <code>try/except RuntimeError: pass</code> for exactly this reason.</li>
+    </ul>
+    <p>If <code>ToolBox</code> or <code>flowLayout2</code> can't be found,
+    <code>install()</code> warns via <code>cmds.warning()</code> and returns
+    <code>None</code> rather than raising.</p>
+
+    <h2 id="public-api">Public API</h2>
+    <pre><code>from CoreTools.dcc.maya.quicklaunch import toolbar
+toolbar.install()   # embeds the widget - safe to call repeatedly (calls remove() first)
+toolbar.remove()     # tears it down</code></pre>
+    <ul>
+      <li><code>install() -&gt; QuickLaunchWidget | None</code></li>
+      <li><code>remove() -&gt; None</code></li>
+      <li><code>widget.load_stacks()</code> / <code>widget.save_stacks(stacks)</code> &mdash;
+        the persisted group list, stored as JSON under a <code>QSettings</code>
+        key (<code>QuickLaunch/Stacks</code>) separate from the general
+        CoreTools config store.</li>
+      <li><code>QuickLaunchWidget.refresh()</code> &mdash; re-pulls tool
+        icons/labels without rebuilding widgets (called after a config
+        change).</li>
+      <li><code>QuickLaunchWidget.open_config()</code> &mdash; opens/raises the
+        (singleton) Configure dialog.</li>
+    </ul>
+    <p>A stack's data shape is
+    <code>{"label": str, "modules": [dotted_module_name, ...]}</code> &mdash; the
+    first module in the list is the "primary" one shown as the
+    always-visible icon; the rest populate the hover popup.</p>
+
+    <footer class="doc-footer">
+      <span>&larr; <a href="index.html">Back to overview</a></span>
+      <span>Source: <code>docs/apps/quicklaunch.md</code></span>
+    </footer>
+  </main>
+</div>
+<footer class="site-footer">
+  Selected technical documentation for Core Flow Tools, an independent R&amp;D
+  project. &middot; <a href="../">&larr; Back to the case study</a>
+</footer>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Utilities — Core Flow Tools Docs</title>
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/img/coreflow-logo.png" alt="">
+      <a href="index.html">Core Flow Tools<span class="tag">Technical Docs</span></a>
+    </div>
+    <div class="case-study-link">
+      <a href="../">&larr; Core Flow Tools Case Study</a>
+    </div>
+    <div class="nav-group">
+      <h6>Overview</h6>
+      <ul><li><a href="index.html">Home</a></li></ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
+      <ul>
+        <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-character-setup.html">Character Setup</a></li>
+        <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
+        <li><a href="app-utilities.html" class="active">Utilities</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
+      <ul>
+        <li><a href="app-ai-companion.html">AI Companion</a></li>
+        <li><a href="api-clips.html">ClipsAPI</a></li>
+        <li><a href="api-ai-providers.html">AI Provider Backend</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">3</span>Shared Foundation</h6>
+      <ul><li><a href="framework.html">Framework</a></li></ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="doc-header">
+      <div class="tier-pill applications">Tier 1 &middot; Applications</div>
+      <div class="kicker">Utilities</div>
+      <h1>Small utilities</h1>
+      <p class="sub">A handful of one-off tools under <strong>Utilities</strong>
+      in the main menu that don't warrant their own doc page &mdash; listed
+      here for completeness.</p>
+    </header>
+
+    <h2 id="cmdsfieldreporter">cmdsFieldReporter (Log)</h2>
+    <p><code>menu_tools/Utilities/cmdsFieldReporter.py</code> &mdash; opens a
+    dockable <code>workspaceControl</code> titled "Log" hosting Maya's own
+    native <code>cmdScrollFieldReporter</code> (a Script-Editor-style
+    command/output log widget), plus a custom toolbar: Clear, an "Echo All"
+    toggle, Search Docs / Python Docs buttons, an inline module-search field
+    with autocomplete, a "main()" checkbox, a file-browse button, and an
+    Execute button that can import and run an arbitrary Python module file
+    found on disk (optionally calling its <code>main()</code>). Adds a custom
+    right-click menu (Copy / Search Docs / Python Docs / Clear) to the
+    reporter itself, and persists last-search-text and the "execute main()"
+    checkbox to the Windows registry independently of CoreTools' own
+    <code>UserConfig</code> store.</p>
+    <div class="note warn">
+      <strong>If this control ever fails to reopen correctly on an older
+      machine:</strong> earlier versions of this file set the
+      workspaceControl's own persisted <code>uiScript</code> to a stale
+      dotted import path left over from before this module's current
+      location under CoreTools &mdash; fixed now, but a workspaceControl
+      saved to a UI layout from before the fix can still carry the old
+      string, and Maya will silently fail to re-import it on restore.
+      Deleting and relaunching the control clears it.
+    </div>
+
+    <h2 id="outliner">Outliner</h2>
+    <p><code>menu_tools/Utilities/Outliner.py</code> &mdash; a plain, minimal
+    secondary Maya window containing an <code>outlinerPanel</code>/<code>outlinerEditor</code>
+    configured to hide shapes, attributes, and connections, showing only the
+    DAG hierarchy. No custom logic beyond native Maya UI commands &mdash; a
+    lightweight second Outliner, nothing more.</p>
+
+    <h2 id="toggle-y-z-up-axis">Toggle Y/Z Up Axis</h2>
+    <p><code>menu_tools/Utilities/Toggle_Y_Z_UpAxis.py</code> &mdash; a one-shot
+    action with no window. Flips Maya's current up-axis (Y-up &lt;-&gt; Z-up)
+    and, either direction, resets the <code>top</code>/<code>front</code>/<code>side</code>/<code>persp</code>
+    camera rotations to canonical orientations, recenters the persp camera's
+    pivot to the origin, and frames all views. It's a toggle, not a picker
+    &mdash; running it just flips whichever axis is currently active. The
+    actual axis-flip logic lives outside CoreTools proper (a shared utility
+    module the launcher imports and calls), so this launcher itself is a
+    thin shim around that external function, not a self-contained
+    implementation.</p>
+
+    <h2 id="settings">
+      <img src="assets/img/icon-settings.png" alt=""
+           style="width:24px;height:24px;border-radius:6px;border:1px solid var(--border);vertical-align:-6px;margin-right:4px;">
+      Settings
+    </h2>
+    <p><code>menu_tools/Utilities/Settings.py</code> &mdash; a pure shim:
+    <code>main()</code> just calls
+    <code>CoreTools.dcc.maya.dialogs.settings.show()</code>. See
+    <a href="framework.html#settings-dialog--registry">Settings dialog +
+    registry</a> for the real Settings dialog documentation.</p>
+
+    <footer class="doc-footer">
+      <span>&larr; <a href="index.html">Back to overview</a></span>
+      <span>Source: <code>docs/apps/utilities.md</code></span>
+    </footer>
+  </main>
+</div>
+<footer class="site-footer">
+  Selected technical documentation for Core Flow Tools, an independent R&amp;D
+  project. &middot; <a href="../">&larr; Back to the case study</a>
+</footer>
+</body>
+</html>

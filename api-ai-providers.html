@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Provider Backend — Core Flow Tools Docs</title>
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/img/coreflow-logo.png" alt="">
+      <a href="index.html">Core Flow Tools<span class="tag">Technical Docs</span></a>
+    </div>
+    <div class="case-study-link">
+      <a href="../">&larr; Core Flow Tools Case Study</a>
+    </div>
+    <div class="nav-group">
+      <h6>Overview</h6>
+      <ul><li><a href="index.html">Home</a></li></ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
+      <ul>
+        <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-character-setup.html">Character Setup</a></li>
+        <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
+        <li><a href="app-utilities.html">Utilities</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
+      <ul>
+        <li><a href="app-ai-companion.html">AI Companion</a></li>
+        <li><a href="api-clips.html">ClipsAPI</a></li>
+        <li><a href="api-ai-providers.html" class="active">AI Provider Backend</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">3</span>Shared Foundation</h6>
+      <ul><li><a href="framework.html">Framework</a></li></ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="doc-header">
+      <div class="tier-pill ai-core">Tier 2 &middot; AI Core</div>
+      <div class="kicker">API Reference</div>
+      <h1>AI provider backend</h1>
+      <p class="sub"><code>core/ai/</code> &mdash; the multi-provider backend
+      underneath the <a href="app-ai-companion.html">AI Companion</a> panel.
+      If <a href="api-clips.html">ClipsAPI</a> is "what the AI can do to a
+      clip," this is "how a request actually reaches a model and comes back
+      as a proposal" &mdash; the layer below <code>ai_panel.py</code> and
+      <code>execute.py</code>.</p>
+    </header>
+
+    <h2 id="shape-of-a-requestresponse">Shape of a request/response</h2>
+    <p><code>core/ai/schemas.py</code> defines the one shape every provider
+    client returns:</p>
+    <pre><code>@dataclass
+class AIResponse:
+    explanation: str = ""
+    python_code: str = ""
+    error: str = ""
+
+    @property
+    def ok(self):
+        return not self.error</code></pre>
+    <p><code>error</code> is set (with <code>explanation</code>/<code>python_code</code>
+    left blank) only when the request itself failed &mdash; network, auth, or
+    malformed model output. Callers must check <code>error</code>/<code>ok</code>
+    first and never assume <code>python_code</code> is present otherwise.</p>
+
+    <h2 id="the-provider-registry">The provider registry</h2>
+    <p><code>core/ai/providers.py</code>'s <code>PROVIDERS</code> dict is the single
+    source of truth for what providers exist:</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>id</th><th>Label</th><th>Default model</th><th>pip package</th></tr>
+      <tr><td><code>"anthropic"</code></td><td>Anthropic (Claude)</td><td><code>claude-sonnet-5</code></td><td><code>anthropic</code></td></tr>
+      <tr><td><code>"openai"</code></td><td>OpenAI (GPT)</td><td><code>gpt-5.5</code></td><td><code>openai</code></td></tr>
+      <tr><td><code>"gemini"</code></td><td>Google (Gemini)</td><td><code>gemini-pro-latest</code></td><td><code>google-genai</code></td></tr>
+    </table>
+    </div>
+    <p><code>DEFAULT_PROVIDER = "anthropic"</code>.</p>
+    <pre><code>build_client(provider=None, model=None) -&gt; AIClient</code></pre>
+    <p>Falls back to <code>DEFAULT_PROVIDER</code> if <code>provider</code> is falsy;
+    raises <code>ValueError</code> for an unknown provider id. Instantiates the
+    concrete client class with <code>model=model or entry["default_model"]</code>
+    &mdash; no API key is passed here; each client resolves its own key from
+    <a href="#api-key-storage">key storage</a> unless constructed with one
+    directly.</p>
+    <p>Other functions in this module, mostly consumed by
+    <a href="framework.html#settings-dialog--registry">Settings &gt;
+    AI</a>:</p>
+    <ul>
+      <li><code>is_installed(provider)</code> &mdash; a cheap "is the SDK
+        importable" check (<code>importlib.util.find_spec</code>, not a real
+        import), with a disk-existence guard since a cached finder entry can
+        lie after an external uninstall.</li>
+      <li><code>install_command(provider, upgrade=False)</code> &mdash; returns
+        <code>(mayapy_path, argv)</code> for <code>mayapy -m pip install &lt;package&gt;</code>.
+        Deliberately does not execute it &mdash; Settings runs it via a
+        non-blocking <code>QProcess</code> so installing an SDK doesn't freeze
+        Maya's UI.</li>
+      <li><code>list_models(provider, api_key)</code> &mdash; a live API call to
+        list that provider's chat-capable model ids, for the model-refresh
+        button in Settings.</li>
+      <li><code>invalidate_import_cache()</code> &mdash;
+        <code>importlib.invalidate_caches()</code>, called after an install
+        finishes so the freshly-installed SDK is importable without
+        restarting Maya.</li>
+    </ul>
+    <div class="note warn">
+      <strong>None of the three SDKs ship with Maya's bundled Python.</strong>
+      Settings &gt; AI's Install button is the intended install path,
+      specifically via <code>mayapy -m pip install ...</code> &mdash; a user's
+      system Python isn't relevant here (<code>sys.executable</code> inside
+      interactive Maya resolves to <code>maya.exe</code>, not
+      <code>mayapy.exe</code>).
+    </div>
+
+    <h2 id="the-client-interface">The client interface</h2>
+    <p><code>core/ai/client_base.py</code> &mdash; the entire abstract surface is
+    one method:</p>
+    <pre><code>class AIClient:
+    def generate_code(self, user_request, context=""):
+        raise NotImplementedError</code></pre>
+    <p><code>context</code> is a plain-text summary the caller assembles
+    (current selection, a domain-specific "concepts primer" &mdash; see
+    <code>ai_panel.py</code>'s <code>context_provider</code> hook, documented in
+    <a href="app-ai-companion.html">AI Companion</a>). The client folds it
+    into the prompt; it never fetches anything itself.</p>
+    <p>Each concrete client shares the same structural pattern:</p>
+    <ul>
+      <li><strong>Lazy SDK import inside <code>generate_code()</code></strong>, never
+        at module load &mdash; a missing SDK on one provider never breaks the
+        others or any other <code>core/ai/</code> caller.</li>
+      <li><code>__init__(self, model=DEFAULT_MODEL, api_key=None)</code>,
+        resolving the key from a constructor arg first, then
+        <a href="#api-key-storage">key storage</a>.</li>
+      <li>A <strong>forced tool/function call</strong> to a single
+        <code>propose_script</code> function taking <code>explanation</code>
+        (string) and <code>python_code</code> (string), both required &mdash; the
+        model cannot respond with free text; every successful call returns a
+        structured proposal.</li>
+      <li>Any API failure is caught, logged (<code>traceback.print_exc()</code>),
+        and returned as <code>AIResponse(error=...)</code> rather than raised.</li>
+    </ul>
+
+    <h2 id="provider-specific-notes">Provider-specific notes</h2>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="glyph">A</div>
+        <h4>Anthropic (<code>anthropic_client.py</code>)</h4>
+        <p><code>messages.create(..., system=system_prompt_for_scope(),
+        tools=[...], tool_choice={"type": "tool", "name":
+        "propose_script"})</code>. The system prompt goes in via a dedicated
+        <code>system=</code> kwarg. Tool input arrives already-decoded (a dict,
+        no manual JSON parsing needed) &mdash; the SDK guarantees well-formed
+        output against the declared schema via constrained decoding.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">O</div>
+        <h4>OpenAI (<code>openai_client.py</code>)</h4>
+        <p>Chat Completions API (not the newer Responses API). The system
+        prompt goes in as a <code>"system"</code>-role message in the
+        <code>messages</code> list, not a dedicated kwarg &mdash; the one
+        structural difference from Anthropic worth remembering. Unlike
+        Anthropic, function arguments come back as a <strong>raw JSON
+        string</strong> (<code>call.function.arguments</code>), requiring an
+        explicit <code>json.loads(...)</code>.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">G</div>
+        <h4>Gemini (<code>gemini_client.py</code>)</h4>
+        <p>Wraps the unified <code>google-genai</code> package (<strong>not</strong>
+        the older, now-superseded <code>google-generativeai</code> package).
+        Default model is deliberately the alias <code>gemini-pro-latest</code>
+        rather than a dated concrete id, after a sibling tool once hardcoded
+        a specific Gemini model id that later 404'd once Google moved on.
+        System prompt goes in via
+        <code>GenerateContentConfig(system_instruction=...)</code>; tool calling
+        is forced via <code>ToolConfig(function_calling_config=FunctionCallingConfig(mode="ANY",
+        allowed_function_names=["propose_script"]))</code>.</p>
+      </div>
+    </div>
+    <p class="dim">Each client's fallback path (if the model somehow doesn't
+    return the forced tool call &mdash; "should be unreachable" per the code's
+    own comments) returns whatever free text the model did produce as an
+    <code>AIResponse</code> with <code>error</code> set, rather than crashing on a
+    missing field.</p>
+
+    <h2 id="the-system-prompt">The system prompt</h2>
+    <p><code>core/ai/prompts.py</code> &mdash; <code>SYSTEM_PROMPT</code> is sent (via
+    <code>system_prompt_for_scope()</code>, currently a pass-through, kept as a
+    hook for a future narrower per-domain scope) with every request, alongside
+    <code>build_user_message(user_request, context)</code> (prefixes
+    <code>f"Current context:\n{context}\n\n"</code> when context is non-empty).</p>
+    <p>What it instructs, in summary:</p>
+    <ul>
+      <li>Frames the model as the AI companion embedded in CoreTools,
+        translating plain English into a <code>maya.cmds</code> Python script
+        for the user to review and run. <code>cmds</code> is already available
+        in the exec namespace &mdash; explicitly told <strong>not</strong> to
+        <code>import maya.cmds</code>.</li>
+      <li>No domain restriction on what nodes it can touch, but told to be
+        precise (scope to a clear name pattern or the current selection)
+        rather than acting broadly or guessing.</li>
+      <li>Hard rules: always call <code>propose_script</code> (never respond with
+        plain text); avoid unnecessary imports; never call
+        <code>cmds.file(save=True)</code>; never touch the filesystem outside
+        Maya's own commands; never make network requests; write code that's
+        readable/sanity-checkable by a lightly-technical user, since they
+        have to approve it before it runs.</li>
+      <li>Ambiguous requests still get a best-effort script that resolves
+        context at runtime (e.g. <code>cmds.ls(selection=True)</code>) rather
+        than a clarification round-trip &mdash; there's no back-and-forth
+        mechanism in this UI, so the model doesn't get to ask a follow-up
+        question.</li>
+      <li>A non-actionable request (a general question, not a task) gets an
+        empty <code>python_code</code> and the actual answer in
+        <code>explanation</code> instead.</li>
+    </ul>
+    <p>This is prompt-level safety framing, not a sandboxing mechanism &mdash;
+    see <a href="app-ai-companion.html#the-safety-model">AI Companion's
+    safety model</a> for what actually enforces the boundary (a human
+    reading the code before clicking Run).</p>
+
+    <h2 id="api-key-storage">API key storage</h2>
+    <p><code>core/ai/key_storage.py</code> &mdash; keys live in the OS keychain
+    via the <code>keyring</code> package, <strong>never</strong> in <code>UserConfig</code>'s
+    plain registry-backed store (unlike Perforce credentials, which do live
+    there in plaintext &mdash; this is a deliberately stronger precedent for
+    anything that's an actual secret). Namespaced per-provider
+    (<code>f"{provider}_api_key"</code>) under a service name distinct from any
+    other CoreTools-family tool sharing the same machine, so switching
+    provider never clobbers another provider's stored key, and two different
+    tools' keys never collide.</p>
+    <pre><code>keyring_available() -&gt; bool
+get_api_key(provider="anthropic") -&gt; str | None
+set_api_key(provider, value) -&gt; bool
+clear_api_key(provider="anthropic") -&gt; bool</code></pre>
+    <p>Every function degrades to a safe default (<code>False</code>/<code>None</code>)
+    rather than raising if <code>keyring</code> isn't importable &mdash; Maya's
+    bundled Python doesn't ship it by default. Settings &gt; AI disables the
+    key field entirely and shows an install hint
+    (<code>mayapy -m pip install keyring</code>) when
+    <code>keyring_available()</code> is false.</p>
+
+    <footer class="doc-footer">
+      <span>&larr; <a href="index.html">Back to overview</a></span>
+      <span>Source: <code>docs/api/ai_providers.md</code></span>
+    </footer>
+  </main>
+</div>
+<footer class="site-footer">
+  Selected technical documentation for Core Flow Tools, an independent R&amp;D
+  project. &middot; <a href="../">&larr; Back to the case study</a>
+</footer>
+</body>
+</html>

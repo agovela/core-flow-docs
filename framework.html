@@ -1,0 +1,731 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Framework — Core Flow Tools Docs</title>
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/img/coreflow-logo.png" alt="">
+      <a href="index.html">Core Flow Tools<span class="tag">Technical Docs</span></a>
+    </div>
+    <div class="case-study-link">
+      <a href="../">&larr; Core Flow Tools Case Study</a>
+    </div>
+    <div class="nav-group">
+      <h6>Overview</h6>
+      <ul><li><a href="index.html">Home</a></li></ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
+      <ul>
+        <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-character-setup.html">Character Setup</a></li>
+        <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
+        <li><a href="app-utilities.html">Utilities</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
+      <ul>
+        <li><a href="app-ai-companion.html">AI Companion</a></li>
+        <li><a href="api-clips.html">ClipsAPI</a></li>
+        <li><a href="api-ai-providers.html">AI Provider Backend</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">3</span>Shared Foundation</h6>
+      <ul><li><a href="framework.html" class="active">Framework</a></li></ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="doc-header">
+      <div class="tier-pill foundation">Tier 3 &middot; Shared Foundation</div>
+      <div class="kicker">Start Here</div>
+      <h1>Framework</h1>
+      <p class="sub">The shared foundation every application is built on. If you're
+      building a new application, read <a href="#starting-a-new-app">Starting a new
+      app</a> first and use <code>tools/new_app_template.py</code> as your
+      literal starting point &mdash; it already wires up everything described
+      below.</p>
+    </header>
+
+    <div class="design-goals">
+      <div class="dg-head">Design goals</div>
+      <div class="dg-row">
+        <div class="dg-num">1</div>
+        <div class="dg-label">Problem</div>
+        <p class="dg-body">Every new application in a growing suite tends to
+        reinvent its own window management, its own menu registration, its
+        own settings storage, and its own visual style - producing a
+        collection of tools that don't feel like they belong to the same
+        product, and duplicating the same bugs across each one independently.</p>
+      </div>
+      <div class="dg-row">
+        <div class="dg-num">2</div>
+        <div class="dg-label">Architectural decision</div>
+        <p class="dg-body">Pull the parts every application needs into one
+        shared layer, built once and reused everywhere: a dockable-window
+        base class, filesystem-driven menu discovery with zero registration
+        boilerplate, one settings registry, one config store, one visual
+        identity. A new application starts from a working scaffold, not a
+        blank file.</p>
+      </div>
+      <div class="dg-row">
+        <div class="dg-num">3</div>
+        <div class="dg-label">Production benefit</div>
+        <p class="dg-body">A fix or improvement to the shared layer (a
+        docking bug, a config edge case, a theme change) benefits every
+        application at once instead of needing to be re-applied per tool -
+        and a reviewer can understand any application's window lifecycle,
+        settings, or styling by reading this one page, not by re-deriving it
+        from each application's own code.</p>
+      </div>
+    </div>
+
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="Framework diagram: every application depends on four shared framework pieces - dockable windows, menu discovery, settings registry and config, and the theme system.">
+        <g font-family="'Segoe UI', sans-serif">
+          <rect x="230" y="16" width="260" height="40" rx="8" fill="#26292f" stroke="#7ad4ff"></rect>
+          <text x="360" y="41" text-anchor="middle" font-size="13" fill="#dcdcdc" font-weight="600">Any Application</text>
+
+          <rect x="20" y="120" width="160" height="60" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="100" y="145" text-anchor="middle" font-size="12" fill="#dcdcdc">Dockable Windows</text>
+          <text x="100" y="163" text-anchor="middle" font-size="10.5" fill="#8b8e96">show_dockable()</text>
+
+          <rect x="196" y="120" width="160" height="60" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="276" y="145" text-anchor="middle" font-size="12" fill="#dcdcdc">Menu Discovery</text>
+          <text x="276" y="163" text-anchor="middle" font-size="10.5" fill="#8b8e96">filesystem &rarr; menu</text>
+
+          <rect x="372" y="120" width="160" height="60" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="452" y="145" text-anchor="middle" font-size="12" fill="#dcdcdc">Settings + Config</text>
+          <text x="452" y="163" text-anchor="middle" font-size="10.5" fill="#8b8e96">registry &amp; UserConfig</text>
+
+          <rect x="548" y="120" width="152" height="60" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="624" y="145" text-anchor="middle" font-size="12" fill="#dcdcdc">Theme</text>
+          <text x="624" y="163" text-anchor="middle" font-size="10.5" fill="#8b8e96">shared visual identity</text>
+
+          <line x1="300" y1="56" x2="100" y2="118" stroke="#5b8fa8" stroke-width="1.3"></line>
+          <line x1="330" y1="56" x2="276" y2="118" stroke="#5b8fa8" stroke-width="1.3"></line>
+          <line x1="390" y1="56" x2="452" y2="118" stroke="#5b8fa8" stroke-width="1.3"></line>
+          <line x1="420" y1="56" x2="624" y2="118" stroke="#5b8fa8" stroke-width="1.3"></line>
+        </g>
+      </svg>
+    </div>
+    <p class="diagram-caption">Four shared pieces every application builds on,
+    documented in the sections below.</p>
+
+    <h2 id="dockable-windows">Dockable windows</h2>
+    <p>Two window shapes exist in CoreTools, and the choice is deliberate per window:</p>
+    <ul>
+      <li><strong>A top-level application</strong> (something you'd launch from the CoreTools
+        menu and expect to stay open alongside the Maya viewport) is a
+        <code>dcc.maya.ui.DockableWindow</code> subclass.</li>
+      <li><strong>A child window opened from within an app</strong> (a Settings dialog,
+        Script History, a batch-rename prompt, a confirmation) stays a plain
+        <code>QDialog</code>, parented to <code>maya_main_window()</code> directly. Apps
+        are dockable; their own child windows aren't.</li>
+    </ul>
+    <p>Every CoreTools window, dockable or not, must parent itself to Maya's main
+    window (<code>dcc.maya.ui.maya_main_window()</code>, wrapping
+    <code>omui.MQtUtil.mainWindow()</code>). An unparented top-level Qt widget
+    behaves like an independent app window &mdash; its own taskbar entry,
+    doesn't raise/lower with Maya.</p>
+
+    <h3><code>DockableWindow</code></h3>
+    <pre><code>class MyApp(dcc_ui.DockableWindow):
+    WINDOW_OBJECT_NAME = "CF_MyAppWindow"   # must be unique across all applications
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        ...</code></pre>
+    <p><code>WINDOW_OBJECT_NAME</code> drives the name of the Maya
+    <code>workspaceControl</code> backing the window
+    (<code>workspace_control_name()</code> returns
+    <code>f"{WINDOW_OBJECT_NAME}WorkspaceControl"</code>), so it must be unique. A
+    dockable widget's "is one already open" state lives in that
+    workspaceControl, not in Qt's own <code>topLevelWidgets()</code> &mdash; which
+    is why launching and relaunching go through dedicated helpers rather than
+    plain construct-and-<code>.show()</code>.</p>
+
+    <h3>Launching: <code>show_dockable(window_class, **show_kwargs)</code></h3>
+    <p>The normal launch/relaunch entry point, always called from a tool's own <code>main()</code>:</p>
+    <pre><code>def main():
+    return dcc_ui.show_dockable(MyApp, area="right")</code></pre>
+    <ul>
+      <li>If a workspaceControl with that name already exists, it just restores it
+        (<code>cmds.workspaceControl(control_name, edit=True, restore=True)</code>)
+        and returns <code>None</code> &mdash; it does <strong>not</strong> delete/recreate.</li>
+      <li>Otherwise it constructs <code>window_class(parent=maya_main_window())</code>
+        and calls <code>.show(dockable=True, **show_kwargs)</code>, returning the new
+        instance.</li>
+    </ul>
+    <div class="note warn">
+      <strong>Confirmed-live crash avoided:</strong> an earlier version of this
+      function always deleted then immediately recreated the control on every
+      call &mdash; that <strong>crashed Maya outright</strong> (not a catchable
+      exception), because <code>deleteUI()</code> on a workspaceControl needs the
+      Qt event loop to process the deletion before a same-named control can be
+      safely reconstructed; doing both synchronously races that. Don't
+      hand-roll a "delete then recreate" pattern &mdash; see
+      <code>rebuild_dockable()</code> below for the one place that actually needs
+      to do this, and how it avoids the race.
+    </div>
+
+    <h3><code>show_dockable()</code> returns <code>None</code> on reuse &mdash; two helpers for that case</h3>
+    <p>Because <code>show_dockable()</code> returns <code>None</code> when it reuses an
+    existing panel, a caller that needs the <em>actual instance</em> (most
+    commonly: to rebind a per-launch context hook, like AnimHub's "Ask AI"
+    binding a fresh <code>ClipsAPI</code> on every click) can't rely on its return
+    value:</p>
+    <pre><code>window = ai_panel.show()
+if window is None:
+    window = dcc_ui.find_dockable_instance(ai_panel.AIPanel)
+if window is not None:
+    window.set_context(...)</code></pre>
+    <ul>
+      <li><strong><code>find_dockable_instance(window_class)</code></strong> &mdash; returns
+        the live widget instance if open (docked or floating), else
+        <code>None</code>. Searches <code>QApplication.instance().allWidgets()</code>
+        (every live widget), not just <code>topLevelWidgets()</code>, because a
+        docked widget is reparented under the workspaceControl's own layout and
+        is no longer top-level.</li>
+      <li><strong><code>is_dockable_window_open(window_class)</code></strong> &mdash; True
+        only if the tool is <em>actually open right now</em>, not merely if its
+        workspaceControl object still exists. Closing a workspaceControl via its
+        own titlebar/tab close button typically just hides it
+        (<code>visible=False</code>) rather than deleting it, and Maya can persist
+        that hidden control's existence across sessions. This checks both
+        <code>exists=True</code> <strong>and</strong> <code>query=True, visible=True</code> &mdash;
+        checking existence alone would report a tool as "open" purely because it
+        existed in some past session.</li>
+    </ul>
+
+    <h3><code>rebuild_dockable()</code> &mdash; dev-reload only</h3>
+    <p>Tears the workspaceControl down and reconstructs it against
+    freshly-reloaded code &mdash; the one legitimate "delete then recreate" path,
+    and it avoids the crash above by splitting the two steps across Maya idle
+    cycles (<code>cmds.evalDeferred</code>) instead of doing both synchronously.
+    This exists specifically for
+    <a href="#refreshcoretools-dev-reload">RefreshCoreTools</a>; normal
+    relaunches should always go through <code>show_dockable()</code>.</p>
+
+    <h2 id="menu-discovery">Menu discovery</h2>
+    <p>A <code>.py</code> file under <code>dcc/maya/menu_tools/</code> automatically
+    becomes a Maya menu item &mdash; no registration call, no manifest to edit.
+    The mechanism:</p>
+    <ul>
+      <li><code>menu_query.py</code> owns <strong>discovery</strong>: it walks
+        <code>menu_tools/</code> recursively and builds a tree
+        (<code>MenuNode</code>). Every subdirectory becomes a submenu; every
+        <code>.py</code> file (except <code>__init__.py</code>) becomes a leaf. This is a
+        shared backbone any consumer can read from &mdash; today that's just the
+        menu builder, but the same tree could drive a marking menu, a search
+        box, or a launcher grid later without touching this module.</li>
+      <li><code>menu.py</code> owns <strong>rendering</strong> that tree onto Maya's
+        actual menu bar (a tear-off "CoreTools" menu,
+        <code>MENU_NAME = "CoreToolsMainMenu"</code>).</li>
+    </ul>
+    <p><strong>The only convention a launcher file needs to follow: define a
+    module-level <code>main()</code>.</strong> No special docstring, attribute, or
+    decorator. <code>menu_query.run_launcher(dotted_module)</code> imports (or
+    reloads, if already imported) the launcher module and calls
+    <code>getattr(module, "main", None)</code>, raising if it's missing.</p>
+    <p><strong>Launcher files are thin shims &mdash; the real implementation lives
+    under <code>tools/</code>.</strong> The actual worked example,
+    <code>menu_tools/Utilities/New_App_Template.py</code>, is the entire
+    convention in miniature:</p>
+    <pre><code>"""Menu launcher for the new-app scaffold/reference - thin shim per the
+menu_tools convention (see menu_query.py's own docstring: launchers here,
+real implementation in tools/new_app_template.py)."""
+
+
+def main():
+    from CoreTools.tools import new_app_template
+    return new_app_template.main()</code></pre>
+
+    <p>A few more discovery details worth knowing:</p>
+    <ul>
+      <li><strong>Labels are auto-derived from filenames</strong>
+        (<code>_label_from_name()</code>): strips <code>.py</code>, replaces <code>_</code>
+        with spaces, splits on case boundaries (<code>UI_Scheme</code> &rarr;
+        "UI Scheme", not "U I Scheme"), and preserves already-uppercase
+        acronyms (<code>CF</code>, <code>UI</code>) instead of letting
+        <code>str.title()</code> mangle them.</li>
+      <li><strong>Icons</strong> are looked up by convention: a same-named
+        <code>.png</code> next to the launcher file (<code>MyTool.py</code> &rarr;
+        <code>MyTool.png</code>), falling back to a shared default icon if that's
+        missing. This same icon feeds both the Maya main menu item and any CF
+        QuickLaunch stack pinned to that launcher &mdash; it's a
+        QuickLaunch/menu-facing icon only, separate from whatever icon (if any)
+        a tool's own window/toolbar uses in-app. The "CF Clean 256" icon set
+        (<code>AI_Companion.png</code>, <code>CF_AnimHub.png</code>,
+        <code>CF_CharacterSetupTool.png</code>, <code>Settings.png</code>,
+        <code>RefreshCoreTools.png</code>) lives here today.</li>
+      <li>The <strong>default icon</strong> itself
+        (<code>dcc/maya/icons/CF_QuickLaunch.png</code>,
+        <code>menu_query.DEFAULT_ICON</code>) is also QuickLaunch's own brand
+        icon &mdash; its config dialog ("Configure QuickLaunch") uses this
+        exact same file as its window icon, so there's one canonical asset for
+        both roles.</li>
+      <li>Walking into a subfolder that has no <code>__init__.py</code>
+        auto-creates an empty one &mdash; subfolders don't need to be pre-seeded
+        by hand.</li>
+      <li><code>iter_leaves(node)</code> gives a flat, depth-first generator over
+        every launcher under a node, for anything that just wants the whole
+        list rather than the tree shape.</li>
+    </ul>
+    <p><code>menu.build()</code> destroys any existing CoreTools menu first, then
+    recursively renders the tree via <code>cmds.menuItem</code>. Each leaf's click
+    handler wraps <code>menu_query.run_launcher(...)</code> in a try/except that
+    reports failures via <code>cmds.warning(...)</code> instead of raising into
+    Maya's own UI code &mdash; one broken tool never breaks the whole menu.</p>
+
+    <h2 id="settings-dialog--registry">
+      <img src="assets/img/icon-settings.png" alt=""
+           style="width:24px;height:24px;border-radius:6px;border:1px solid var(--border);vertical-align:-6px;margin-right:4px;">
+      Settings dialog + registry
+    </h2>
+    <p>Four "core" pages (Perforce, AI, Logging, About) are hardcoded directly
+    into <code>dcc/maya/dialogs/settings.py</code>, since they're
+    framework-level concerns, not any one app's &mdash; Project used to be a
+    fifth core page here but was relocated entirely into AnimHub's own
+    Export tab (see <a href="app-animhub.html">AnimHub</a>), since AH is
+    the only thing that actually needs it to resolve a per-clip export path.
+    Its Maya-menu/QuickLaunch icon is <code>Settings.png</code>, next to the
+    <code>Settings.py</code> launcher (see
+    <a href="#menu-discovery">Menu discovery</a> above) &mdash; the dialog itself
+    doesn't set its own <code>setWindowIcon()</code>. Everything else is an
+    <strong>app-registered page</strong>, via <code>settings_registry.py</code>:</p>
+    <pre><code>from CoreTools.dcc.maya.dialogs import settings_registry
+
+def _build_my_page(parent):
+    return MySettingsPage(parent)
+
+settings_registry.register_page("My App", _build_my_page)</code></pre>
+    <ul>
+      <li><code>factory(parent)</code> is called once <strong>per Settings dialog
+        open</strong> and must return a <code>QWidget</code>.</li>
+      <li>If the returned widget defines a <code>load()</code> method (no args),
+        <code>CoreSettingsDialog</code> calls it once right after construction
+        &mdash; the "pull current values from config" hook.</li>
+      <li><strong>There's no <code>save()</code> hook.</strong> CoreTools convention is
+        live-persist-on-edit: a registered page wires its own fields to persist
+        themselves on their own Qt signals, the same as every core page does.
+        Nothing here batches a save on dialog accept.</li>
+      <li><code>register_page()</code> has <strong>no dedup guard</strong> &mdash; calling
+        it twice registers the page twice. If your <code>main()</code> might run
+        more than once in a session (it will, under RefreshCoreTools), guard
+        registration yourself with a module-level flag:
+        <pre><code>_settings_page_registered = False
+
+def _register_settings_page():
+    global _settings_page_registered
+    if _settings_page_registered:
+        return
+    settings_registry.register_page("My App", _build_my_page)
+    _settings_page_registered = True</code></pre>
+      </li>
+    </ul>
+    <p><code>CoreSettingsDialog(parent=None, initial_page=None)</code> lets a
+    caller land directly on a specific page by label (e.g. a tool's own
+    "Tools &gt; Settings..." landing on its own page) via <code>initial_page</code>.
+    Core pages always occupy the fixed order <code>("Project", "Perforce", "AI",
+    "Logging", "About")</code>; app-registered pages are appended after all five
+    regardless of registration order. If a page factory throws, it's caught,
+    logged, and skipped &mdash; one broken settings page never breaks the whole
+    dialog.</p>
+    <p>Module-level <code>settings.show(initial_page=None)</code> is the normal
+    external entry point &mdash; resolves the Maya main window as parent,
+    constructs the dialog, calls <code>.exec_()</code> (modal), and returns the
+    dialog instance.</p>
+
+    <h3>Core page field reference</h3>
+    <p>What's actually on each of the 5 hardcoded pages:</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Page</th><th>Fields</th></tr>
+      <tr>
+        <td><strong>Project</strong></td>
+        <td>Three radio buttons for <code>ProjectMode</code> (Maya / Perforce /
+        Custom), a path field + browse button shown only in Custom mode, a
+        read-only label showing the live-resolved root (or an amber warning if
+        resolution fails), and a manual refresh button.</td>
+      </tr>
+      <tr>
+        <td><strong>Perforce</strong></td>
+        <td>An enable checkbox (rest of the page hidden when off),
+        server/user/client fields, an "auto checkout on edit" checkbox, a Test
+        Connection button (tests the currently-typed fields, not necessarily
+        the saved ones) with a pass/fail result label, and an
+        install/update-<code>p4python</code> button with a live installed-or-not
+        status label.</td>
+      </tr>
+      <tr>
+        <td><strong>AI</strong></td>
+        <td>Provider combo (populated from
+        <a href="api-ai-providers.html#the-provider-registry">PROVIDERS</a>), an
+        install/update button for that provider's SDK, an API key field
+        (password-masked, with a show/hide toggle, disabled entirely if
+        <code>keyring</code> isn't installed) with a label explaining where it's
+        stored, and an editable model combo with a "fetch real model list from
+        the provider's API" refresh button (requires a key to already be
+        set).</td>
+      </tr>
+      <tr>
+        <td><strong>Logging</strong></td>
+        <td>A level combo (<code>DEBUG</code>/<code>INFO</code>/<code>WARNING</code>/<code>ERROR</code>,
+        calling <code>core_log.reconfigure()</code> on change), a "log to file"
+        checkbox, a folder field + browse button (shown only when file logging
+        is on), and an "open log folder" button.</td>
+      </tr>
+      <tr>
+        <td><strong>About</strong></td>
+        <td>Informational only, no controls: a short blurb on what CoreTools
+        is, a pointer to the AI page for the AI Companion's own setup, and a
+        note that Project/Perforce config here is shared foundation any current
+        or future CoreTools app can read.</td>
+      </tr>
+    </table>
+    </div>
+    <p>Every field on every page persists immediately on its own signal
+    (<code>editingFinished</code>, <code>toggled</code>, <code>currentIndexChanged</code>, ...)
+    straight to <code>UserConfig</code> &mdash; there's a single primary "close"
+    button at the bottom of the dialog and no Cancel, consistent with the
+    live-persist convention described above.</p>
+
+    <h3 id="app-registered-pages">App-registered pages</h3>
+    <p>Pages an application adds itself via <code>register_page()</code>,
+    appended after the five core pages above in the order shown here.
+    AnimHub is currently the only application with app-specific fields
+    worth calling out individually:</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Page &middot; tab</th><th>Fields</th></tr>
+      <tr>
+        <td id="animhub-interface-settings"><strong>AnimHub &middot;
+        Interface</strong></td>
+        <td>Default row style (Optimized / Compact / Preview &mdash; see
+        <a href="app-animhub.html#clip-row-anatomy">Clip row anatomy</a>), an
+        "enable clip preview" toggle for the hover popup, preview delay (ms,
+        default 1200 &mdash; see
+        <a href="app-animhub.html#hover-preview-popup">Hover preview
+        popup</a>), and preview playback speed (fps, default 52). The
+        playback-speed field is read fresh from <code>UserConfig</code> on
+        every hover, never cached, so a change here takes effect on the very
+        next hover with no relaunch &mdash; see
+        <a href="app-animhub.html#clip-preview-thumbnails">Clip preview
+        thumbnails</a> for how it's applied.</td>
+      </tr>
+      <tr>
+        <td id="animhub-export-settings"><strong>AnimHub &middot;
+        Export</strong></td>
+        <td>Project root mode (Maya Project / P4 Workspace / Custom &mdash;
+        moved here from the generic Project page, since AnimHub's own export
+        path resolution was always its only real consumer), a global export
+        folder (the fallback used when no project root resolves), and File
+        Type (ASCII / Binary, default ASCII). See
+        <a href="app-animhub.html#export-pipeline">Export pipeline</a> for
+        how these feed the actual FBX write.</td>
+      </tr>
+    </table>
+    </div>
+
+    <h2 id="config-userconfig">Config (<code>UserConfig</code>)</h2>
+    <p><code>core/config.py</code>'s <code>UserConfig</code> is the shared,
+    registry-backed (<code>QSettings</code>, a single per-user Windows registry
+    key namespaced to this project) settings store every application reads
+    and writes through &mdash; one store, section-addressed, not one file per
+    app.</p>
+    <pre><code>from CoreTools.core import config as core_config
+cfg = core_config.UserConfig()
+
+cfg.get(section, key, default)         # single value, type-coerced to match `default`
+cfg.set(section, key, value)           # single value, persists immediately
+cfg.section(section) -&gt; dict           # every key in a section, defaults merged in
+cfg.update_section(section, mapping)   # bulk write
+cfg.reset()                            # clears everything back to DEFAULTS</code></pre>
+    <p><code>DEFAULTS</code> (a module-level dict in <code>config.py</code>) only needs
+    an entry for a section if something needs to <strong>enumerate</strong> that
+    section's keys generically (<code>section()</code>, a Settings page's
+    <code>load()</code>). A tool reading one key with its own explicit default
+    (<code>cfg.get("my_app", "some_key", 0)</code>) doesn't need a
+    <code>DEFAULTS</code> entry at all &mdash; <code>new_app_template.py</code>
+    deliberately skips adding one for its own demo key, to keep the bar for
+    "just persist one setting" low.</p>
+    <p><code>UserConfig</code> is a singleton (<code>__new__</code>-based) &mdash;
+    constructing it anywhere gets you the same underlying <code>QSettings</code>
+    connection.</p>
+
+    <h2 id="logging">Logging</h2>
+    <p>Built on Python's stdlib <code>logging</code>, not a custom system &mdash; one
+    shared logger tree rooted at <code>"CoreTools"</code>.</p>
+    <pre><code>from CoreTools.core import log as core_log
+log = core_log.get_logger(__name__)
+
+log.info("...")
+log.warning("...")
+log.exception("...")   # inside an except block - includes the traceback</code></pre>
+    <p><code>get_logger()</code> calls <code>configure()</code> first (idempotent), so
+    nothing needs explicit init-order handling. Passing <code>__name__</code> from
+    anywhere inside <code>CoreTools</code> lands correctly in the
+    <code>"CoreTools.*"</code> subtree without double-prefixing.</p>
+    <ul>
+      <li><strong>Always-on console handler</strong> &mdash; Maya's own Script Editor
+        already captures stdout, so this is the "visible in Maya" path with
+        zero extra plumbing.</li>
+      <li><strong>Optional rotating file handler</strong> &mdash; only if Settings &gt;
+        Logging has "log to file" enabled. 2MB per file, 3 backups, a local
+        per-user log directory by default. A bad/unwritable log directory
+        degrades to console-only rather than blocking the calling app's
+        startup.</li>
+      <li><code>logger.propagate = False</code> &mdash; deliberately doesn't bubble to
+        Python's own root logger, avoiding double-logging if something else in
+        the process already has root handlers configured.</li>
+      <li><code>reconfigure()</code> is <code>configure(force=True)</code> &mdash; call it
+        right after a Settings &gt; Logging change so a level/file-logging
+        toggle takes effect immediately rather than requiring a relaunch.
+        <code>force=True</code> is also what lets a RefreshCoreTools hot-reload of
+        this module actually pick up new config, rather than silently no-op-ing
+        because the module-level "already configured" guard was never
+        reset.</li>
+    </ul>
+
+    <h2 id="project-root--perforce">Project root + Perforce</h2>
+    <h3><code>core/project.py</code> &mdash; <code>get_project_root()</code></h3>
+    <p>The one function every application should call instead of inventing its own
+    root-finding logic. Reads the mode from Settings &gt; Project
+    (<code>ProjectMode.MAYA</code> / <code>.P4</code> / <code>.CUSTOM</code>) and resolves
+    accordingly:</p>
+    <ul>
+      <li><strong>Maya mode</strong> &mdash; <code>cmds.workspace(query=True, rootDirectory=True)</code>.</li>
+      <li><strong>P4 mode</strong> &mdash; <code>core.p4.p4().project_root()</code>.</li>
+      <li><strong>Custom mode</strong> &mdash; a path typed directly into Settings.</li>
+    </ul>
+    <p>Returns <code>""</code> when unresolvable rather than raising &mdash; callers
+    decide how to handle a missing root (AnimHub's export path resolution
+    falls through to its own next-tier fallback, for example).</p>
+
+    <h3><code>core/p4/client.py</code> &mdash; <code>P4Client</code></h3>
+    <p>A direct P4Python integration (clean-room, not a
+    port). Pure logic &mdash; no <code>maya.cmds</code>, no dialogs &mdash; so it's
+    importable from plain <code>mayapy</code> too. Access through the module-level
+    singleton accessor, not by constructing directly:</p>
+    <pre><code>from CoreTools.core import p4 as core_p4
+core_p4.p4().checkout(path)</code></pre>
+    <p><strong>Off by default</strong> (Settings &gt; Perforce &gt; Enable). With
+    server/user/client left blank, it falls back to P4Python's own environment
+    resolution (P4CONFIG, <code>P4PORT</code>/<code>P4USER</code>/<code>P4CLIENT</code>) &mdash; a
+    user with a normal system P4 setup gets a working connection with zero
+    CoreTools-side config. Explicit values in Settings always override.</p>
+    <p>Status is one of <code>STATUS_OK</code> / <code>STATUS_OFFLINE</code> /
+    <code>STATUS_DISABLED</code> (<code>.status</code> / <code>.is_available</code>). Common
+    operations: <code>checkout</code>, <code>add_or_checkout</code>, <code>sync_file</code> /
+    <code>sync_path</code>, <code>revert</code>, <code>opened_files()</code>, <code>file_status()</code>,
+    <code>scene_status()</code> (one of <code>"In Sync"</code> / <code>"Off Sync"</code> /
+    <code>"Checked Out"</code> / <code>"Not In Depot"</code>), <code>project_root()</code>,
+    <code>client_workspace()</code>. Every operation wraps its own <code>connect()</code>
+    and swallows/logs failures rather than propagating &mdash; callers get a safe
+    falsy/empty value back, not an exception to catch everywhere.</p>
+
+    <h3><code>dcc/maya/p4_status_bar.py</code> &mdash; <code>P4StatusBar</code></h3>
+    <p>A reusable status strip (timestamp | project pill | status dot+text |
+    workspace | user@machine) any P4-aware app can drop into its layout:</p>
+    <pre><code>self.p4_bar = P4StatusBar()
+layout.addWidget(self.p4_bar)
+...
+self.p4_bar.refresh()   # call after anything that might change P4 state</code></pre>
+    <p>There's no registration mechanism &mdash; it's a plain widget,
+    refresh-on-demand (only its clock label ticks on its own timer). It
+    <strong>hides itself entirely</strong> when P4 is disabled, rather than
+    showing inert "P4 Disabled" chrome &mdash; its whole premise is "this app is
+    using P4 right now." <code>dcc/maya/p4_ui.py</code> layers interactive
+    <code>cmds.confirmDialog</code>-driven flows on top (an offline warning, an
+    interactive scene-status check-and-act flow) for apps that want a blocking
+    prompt rather than just the status strip.</p>
+
+    <h2 id="refreshcoretools-dev-reload">
+      <img src="assets/img/icon-refresh.png" alt=""
+           style="width:24px;height:24px;border-radius:6px;border:1px solid var(--border);vertical-align:-6px;margin-right:4px;">
+      RefreshCoreTools (dev reload)
+    </h2>
+    <p><code>menu_tools/RefreshCoreTools.py</code> is the dev-loop tool: rebuild
+    the CoreTools menu, reinstall the QuickLaunch toolbar widget, and refresh
+    any currently-open dockable tools &mdash; all without restarting Maya. Has
+    its own menu icon (<code>RefreshCoreTools.png</code>, from the CF Clean 256
+    set) rather than falling back to the shared default.</p>
+    <div class="note">
+      <strong>Why a plain <code>importlib.reload()</code> isn't enough:</strong> it
+      only re-executes one module's own top-level code. A
+      <code>from X import Y</code> statement inside it just re-binds to the
+      already-cached <code>X</code>, it does not transitively reload <code>X</code>.
+      Separately &mdash; and this is the "why doesn't my edit show up" gotcha
+      every app in this suite has hit at least once &mdash; reloading a module's
+      <em>code</em> does not change the class of an <em>already-constructed</em>
+      instance. <code>reload()</code> replaces the class object the module name
+      points to, but a live window's <code>__class__</code> still points at the old
+      class object, so its methods keep running old code until the instance
+      itself is torn down and reconstructed against the freshly reloaded class.
+    </div>
+    <p>What RefreshCoreTools actually does:</p>
+    <ol>
+      <li>Walks <code>sys.modules</code> for everything under
+        <code>"CoreTools"</code>, sorts by dot-count <strong>descending</strong>
+        (deepest/leaf modules first), and calls <code>importlib.reload()</code> on
+        each &mdash; a mitigation for the from-import staleness problem above, not
+        a complete fix. Each reload is individually try/excepted; one failure
+        is logged and skipped, not fatal to the rest.</li>
+      <li>Rebuilds the menu (<code>menu.build()</code>) and reinstalls QuickLaunch.</li>
+      <li><strong>Refreshes open dockable tools</strong> via a hardcoded registry,
+        <code>DOCKABLE_TOOLS</code> &mdash; a tuple of <code>(dotted_module,
+        window_class_attr)</code> pairs. <strong>Any new dockable application needs a
+        manual entry added to this tuple to be refresh-aware</strong> &mdash; it is
+        not auto-discovered. For each entry already open (checked via
+        <code>is_dockable_window_open()</code>), it calls
+        <code>dcc_ui.rebuild_dockable(window_class, area="right")</code> &mdash; the
+        one legitimate caller of that function, since it's the one case that
+        genuinely needs the code to change under an existing window.</li>
+    </ol>
+    <p>Only tools that are <strong>already open</strong> get rebuilt &mdash; nothing is
+    force-launched by a refresh.</p>
+
+    <h2 id="visual-design-system">Visual design system</h2>
+    <p><code>dcc/maya/theme.py</code> is CoreTools' own visual identity &mdash; not a
+    copy of Maya's or of any other tool's. Cool neutral grays for nearly
+    everything, <strong>no role-based button coloring</strong> (Add/Remove/Save all
+    read the same neutral gray), and a single warm amber accent reserved for
+    interactive feedback, distinct from the one blue reserved for the primary
+    action.</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Token</th><th>Hex</th><th>Use</th></tr>
+      <tr><td><code>Color.BG</code></td><td><code>#2b2e35</code></td><td>Window base</td></tr>
+      <tr><td><code>Color.BG_ELEV</code></td><td><code>#23262c</code></td><td>Panels, inputs, trees</td></tr>
+      <tr><td><code>Color.BORDER</code></td><td><code>#3a3d44</code></td><td>Neutral card/input borders</td></tr>
+      <tr><td><code>Color.TEXT</code> / <code>TEXT_DIM</code></td><td><code>#dcdcdc</code> / <code>#8b8e96</code></td><td>Primary / secondary text</td></tr>
+      <tr><td><code>Color.ACCENT</code></td><td><code>#e8a33d</code></td><td>Amber &mdash; focus rings, pressed state, selected rows. <strong>Not</strong> the primary-button color.</td></tr>
+      <tr><td><code>Color.HEADER</code></td><td><code>#29abe2</code></td><td>Bold blue &mdash; section titles</td></tr>
+      <tr><td><code>Color.SUBTITLE</code></td><td><code>#5b8fa8</code></td><td>Muted blue, one step down from HEADER &mdash; small secondary captions</td></tr>
+      <tr><td><code>Color.PRIMARY</code></td><td><code>#4fc3f7</code></td><td>Lighter blue &mdash; reserved for the single primary action button, and the "signature outline"</td></tr>
+      <tr><td><code>Color.STATUS_OK</code> / <code>STATUS_OFFLINE</code></td><td><code>#6fa870</code> / <code>#e25c5c</code></td><td>Connection-status semantics (P4, AI provider key, etc.) &mdash; a separate signal class from ACCENT/PRIMARY</td></tr>
+    </table>
+    </div>
+    <p><code>MAIN_STYLE</code> is the full shared QSS every application applies via
+    <code>self.setStyleSheet(theme.MAIN_STYLE)</code>. <code>tools/ui_scheme.py</code>
+    ("CF UI Scheme") is the living reference for it &mdash; a page rendering one
+    of every styled widget type, meant to be launched after any theme.py edit
+    so a palette/spacing change can be eyeballed in one place instead of
+    chased across every dialog.</p>
+
+    <h3>Small captions: <code>subtitleLabel</code></h3>
+    <p>A reusable small-caption convention for labeling a sub-section that
+    doesn't need a full heading (Character Setup Tool's "SOCKETS" label, CF
+    QuickLaunch's "PRESETS" label): muted blue, 8pt, semi-bold.</p>
+    <pre><code>label = QtWidgets.QLabel("MY SECTION")
+label.setObjectName("subtitleLabel")</code></pre>
+    <p>AnimHub's own "FILTER VIEW"/"ACTIONS" toolbar captions (see
+    <a href="app-animhub.html">AnimHub</a>) use a visually similar but
+    deliberately separate, dimmer light-blue tint instead of this shared rule
+    &mdash; styled locally (<code>theme.rgba(theme.Color.PRIMARY, 100)</code>) rather
+    than through <code>subtitleLabel</code>, specifically so tuning it doesn't
+    shift every other caption using the shared convention along with it.</p>
+
+    <h3 id="the-signature-outline">The signature outline</h3>
+    <p>A faint, translucent <code>Color.PRIMARY</code>-blue <strong>2px</strong>
+    border around a application's own outer edge &mdash; the one deliberate piece of
+    "branding" shared across every application, tried first on AnimHub and
+    promoted here once confirmed live ("if we like it we'll add them to all CF
+    tools"). Widened from an initial 1px once the whole scheme was in live
+    use.</p>
+    <pre><code>self.setStyleSheet(theme.MAIN_STYLE)
+theme.apply_signature_outline(self)   # must come after objectName() is already set</code></pre>
+    <p>Must be called <strong>after</strong> the window's <code>objectName()</code> is
+    already set (a <code>DockableWindow</code> sets it from
+    <code>WINDOW_OBJECT_NAME</code> automatically in its own <code>__init__</code>,
+    before your subclass body runs, so this is almost always safe to call
+    right after <code>setStyleSheet</code>). It scopes the border via that
+    <em>existing</em> object name &mdash; giving a dockable window a <em>new</em>
+    <code>setObjectName()</code> just for this purpose breaks Maya's own
+    workspaceControl naming ("...WorkspaceControl is not unique").</p>
+    <p>A window with its own <code>QMenuBar</code> needs the matching helper too, so
+    the outline doesn't visibly stop short of the menu bar's own top edge:</p>
+    <pre><code>self.menu_bar = QtWidgets.QMenuBar()
+theme.apply_signature_outline_to_menu_bar(self.menu_bar)</code></pre>
+    <p>Every top-level application has this applied (AnimHub, Character Setup
+    Tool, Clip Previewer, the AI Companion) and it's baked directly into
+    <code>tools/new_app_template.py</code>, so a new app gets it for free without
+    needing to remember to add it. It isn't limited to full dockable windows,
+    either &mdash; QuickLaunch (<a href="app-quicklaunch.html">QuickLaunch</a>),
+    a small widget embedded directly into Maya's own ToolBox rather than a
+    standalone app, carries just this outline with none of the rest of
+    <code>MAIN_STYLE</code> applied, so it stays visually native to the ToolBox
+    while still reading as unmistakably a CF surface.</p>
+
+    <h2 id="starting-a-new-app">Starting a new app</h2>
+    <p><code>tools/new_app_template.py</code> is the copyable scaffold &mdash; a real,
+    working, deliberately over-complete reference rather than a stub. Three
+    steps, straight from its own docstring:</p>
+    <ol>
+      <li>Copy the file to a new name; rename <code>_TemplateApp</code> to your
+        app's class name (keep the <code>CF</code> prefix convention on
+        <code>WINDOW_OBJECT_NAME</code>).</li>
+      <li>Copy <code>menu_tools/Utilities/New_App_Template.py</code> alongside it
+        (or into a category subfolder &mdash; subfolders become submenus, see
+        <a href="#menu-discovery">Menu discovery</a>) &mdash; this becomes your
+        launcher.</li>
+      <li>Delete whatever you don't need &mdash; the demo settings page, the
+        config example, the demo counter all exist purely as a complete
+        worked example, not a required shape.</li>
+    </ol>
+    <p>What the template demonstrates, all of which every real application has
+    converged on:</p>
+    <ul>
+      <li>Dockable, launched via <code>show_dockable()</code>, never
+        constructed/<code>.show()</code>'d directly.</li>
+      <li>The <strong>two-layout margin convention</strong>: a tight 2px
+        <code>outer</code> layout against the dock/window edge (matching native
+        Maya panel chrome), with the real interior padding (14px) living on a
+        separate <code>content</code> widget inside it. Collapsing these into one
+        layout would force a single margin value to serve two different jobs.
+        <pre><code>outer = QtWidgets.QVBoxLayout(self)
+outer.setContentsMargins(2, 2, 2, 2)
+
+content = QtWidgets.QWidget()
+content_layout = QtWidgets.QVBoxLayout(content)
+content_layout.setContentsMargins(14, 14, 14, 14)
+content_layout.setSpacing(12)
+outer.addWidget(content, 1)</code></pre>
+      </li>
+      <li><code>theme.apply_signature_outline(self)</code> right after
+        <code>setStyleSheet</code>.</li>
+      <li>A <code>"sectionHeader"</code>-styled label for the app's main heading, and
+        a single <code>"primary"</code>-named button for its one affirmative action
+        &mdash; matching the Settings dialog's own single-primary-button
+        convention.</li>
+      <li><code>log = core_log.get_logger(__name__)</code> at module level instead
+        of bare <code>print()</code>.</li>
+      <li><code>core.config.UserConfig</code> for anything that should persist,
+        with no <code>DEFAULTS</code> entry needed unless something needs to
+        enumerate the section generically.</li>
+      <li>An optional Settings page, registered with the double-registration
+        guard shown in
+        <a href="#settings-dialog--registry">Settings dialog + registry</a>.</li>
+    </ul>
+
+    <footer class="doc-footer">
+      <span>&larr; <a href="index.html">Back to overview</a></span>
+      <span>Source: <code>docs/framework.md</code></span>
+    </footer>
+  </main>
+</div>
+<footer class="site-footer">
+  Selected technical documentation for Core Flow Tools, an independent R&amp;D
+  project. &middot; <a href="../">&larr; Back to the case study</a>
+</footer>
+</body>
+</html>

@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Core Flow Tools — Technical Documentation</title>
+<link rel="stylesheet" href="assets/docs.css">
+<style>
+  .content { max-width: 980px; }
+  .hero { margin-bottom: 36px; }
+  .hero .kicker {
+      color: var(--primary-hover); font-size: 12.5px; font-weight: 700;
+      letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 10px;
+  }
+  .hero h1 { font-size: 34px; margin: 0 0 14px; letter-spacing: -0.01em; }
+  .hero p.sub { color: var(--text-dim); font-size: 16px; max-width: 70ch; margin: 0 0 10px; }
+
+  .section-lead {
+      color: var(--subtitle); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; margin: 14px 0 4px;
+  }
+  .tier-block { margin: 44px 0; }
+  .tier-block .tier-heading {
+      display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px;
+  }
+  .tier-block .tier-heading h2 {
+      margin: 0; border: none; padding: 0; font-size: 21px;
+  }
+  .tier-block p.tier-desc {
+      color: var(--text-dim); font-size: 14.5px; max-width: 66ch; margin: 6px 0 16px;
+  }
+  .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+      margin-top: 10px;
+  }
+  .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      transition: border-color .15s ease, transform .15s ease;
+  }
+  .card:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .card .card-title-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+  }
+  .card img.card-icon {
+      width: 30px; height: 30px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg-elev);
+      object-fit: cover; flex: 0 0 auto;
+  }
+  .card a.card-title {
+      display: block; font-size: 15px; font-weight: 650; color: var(--text);
+      text-decoration: none;
+  }
+  .card a.card-title:hover { color: var(--primary-hover); }
+  .card p { margin: 0; font-size: 13.5px; color: var(--text-dim); }
+
+  .convention-grid { margin-top: 10px; }
+  .convention {
+      display: grid; grid-template-columns: 22px 1fr; gap: 4px 14px;
+      padding: 14px 0; border-bottom: 1px solid var(--divider);
+  }
+  .convention:last-child { border-bottom: none; }
+  .convention .glyph {
+      grid-row: span 2; width: 22px; height: 22px; border-radius: 50%;
+      background: var(--bg-elev); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: var(--primary-hover); margin-top: 2px;
+  }
+  .convention h4 { margin: 0; font-size: 14px; color: var(--text); }
+  .convention p { margin: 4px 0 0; font-size: 13.5px; color: var(--text-dim); }
+
+  .safety-callout {
+      margin: 20px 0 40px;
+      background: linear-gradient(180deg, rgba(156,133,176,0.10), rgba(156,133,176,0.02));
+      border: 1px solid var(--border);
+      border-left: 3px solid #9c85b0;
+      border-radius: 10px;
+      padding: 22px 24px;
+  }
+  .safety-callout .kicker2 {
+      color: #c3aad8; font-size: 11.5px; font-weight: 700;
+      letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 8px;
+  }
+  .safety-callout h3 { margin: 0 0 10px; font-size: 18px; }
+  .safety-callout p { margin: 8px 0; font-size: 14.5px; color: var(--text); max-width: 74ch; }
+  .safety-callout p.dim { color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/img/coreflow-logo.png" alt="">
+      <a href="index.html">Core Flow Tools<span class="tag">Technical Docs</span></a>
+    </div>
+    <div class="case-study-link">
+      <a href="../">&larr; Core Flow Tools Case Study</a>
+    </div>
+    <div class="nav-group">
+      <h6>Overview</h6>
+      <ul><li><a href="index.html" class="active">Home</a></li></ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
+      <ul>
+        <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-character-setup.html">Character Setup</a></li>
+        <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
+        <li><a href="app-utilities.html">Utilities</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
+      <ul>
+        <li><a href="app-ai-companion.html">AI Companion</a></li>
+        <li><a href="api-clips.html">ClipsAPI</a></li>
+        <li><a href="api-ai-providers.html">AI Provider Backend</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">3</span>Shared Foundation</h6>
+      <ul><li><a href="framework.html">Framework</a></li></ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="hero">
+      <div class="kicker">Core Flow Tools &middot; Independent R&amp;D Project</div>
+      <h1>Core Flow Tools — Technical Documentation</h1>
+      <p class="sub">Core Flow Tools is an independent, clean-room Maya/DCC pipeline
+      suite built from a three-tier architecture: a set of production
+      <strong>applications</strong>, a shared <strong>AI core</strong> that gives those
+      applications controlled, curated AI assistance, and a common
+      <strong>foundation</strong> every tool is built on. Nothing here is copied
+      from any prior codebase - the design is informed by real production
+      workflows, but every implementation is original.</p>
+      <p class="sub">This site documents the engineering: data models, APIs,
+      safety architecture, and the design decisions behind each piece - not
+      just how to click the buttons. Start with the architecture below, or
+      jump straight to a tier in the sidebar.</p>
+    </div>
+
+    <div class="diagram-wrap">
+      <img src="assets/img/ecosystem-diagram.png" alt="Core Flow Tools ecosystem:
+           AnimHub, Character Setup, QuickLaunch, and Utilities as applications,
+           built on a shared AI Core that translates intent into coordinated
+           actions, all resting on a Shared Foundation of character awareness,
+           configuration, Maya integration, common APIs, and live reload."
+           style="max-width:100%; height:auto; display:block; margin:0 auto;">
+    </div>
+    <p class="diagram-caption">Applications bind their own curated API (e.g. AnimHub's
+    <code>ClipsAPI</code>) into the shared AI Companion - the AI never gets raw,
+    unrestricted access. Every tier is built on the same shared foundation.</p>
+
+    <div class="safety-callout">
+      <div class="kicker2">Why this architecture exists</div>
+      <h3>AI as a shared capability, not an autonomous agent</h3>
+      <p>The AI Companion is a <strong>single, shared capability</strong> every
+      application can plug into - it is never given unrestricted access to
+      Maya. Each application hands it a small, curated, tested API scoped to
+      that application's own domain (AnimHub's <code>ClipsAPI</code>, for
+      example) plus a short "concepts primer" describing how to use it. The
+      model proposes Python against that curated surface; a human reads the
+      proposed script and clicks Run before anything executes, wrapped in a
+      single undo step.</p>
+      <p>That review step is the entire safety mechanism - not a sandbox, not
+      an allow-list of individual commands. The curated API layer exists for
+      a different, complementary reason: some operations have a real
+      correctness trap that's easy to get subtly wrong even for a capable
+      model (shifting the same animation curve twice through two different
+      paths, moving a keyframe in a way that silently corrupts its playback,
+      reordering a native command's own collision-prone flags). Rather than
+      relying on prompt wording to keep the model out of those traps, the
+      application exposes one tested, verified function instead - and every
+      time a new trap has been found in production use, the fix has been to
+      extend the curated surface, not to hope the wording holds up next
+      time.</p>
+      <p class="dim">See <a href="app-ai-companion.html">AI Companion</a> for the
+      full safety model, and <a href="api-clips.html">ClipsAPI</a> for the
+      documented history of exactly what this design has prevented.</p>
+    </div>
+
+    <div class="tier-block">
+      <div class="tier-heading">
+        <span class="tier-pill applications">Tier 1</span>
+      </div>
+      <h2 style="border:none; padding:0; margin:0 0 4px; font-size:21px;">Applications</h2>
+      <p class="tier-desc">Production tools artists and technical animators use
+      directly - clip management, character rigging metadata, a pinned tool
+      launcher, and small focused utilities.</p>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-title-row">
+            <img class="card-icon" src="assets/img/icon-animhub.png" alt="">
+            <a class="card-title" href="app-animhub.html">AnimHub &rarr;</a>
+          </div>
+          <p>The clip/take manager and FBX export pipeline - the largest
+          application in the suite.</p>
+        </div>
+        <div class="card">
+          <div class="card-title-row">
+            <img class="card-icon" src="assets/img/icon-character-setup.png" alt="">
+            <a class="card-title" href="app-character-setup.html">Character Setup &rarr;</a>
+          </div>
+          <p>Authoring UI for a character-aware data model - control rig +
+          export asset + attachments + sockets.</p>
+        </div>
+        <div class="card">
+          <div class="card-title-row">
+            <img class="card-icon" src="assets/img/icon-quicklaunch.png" alt="">
+            <a class="card-title" href="app-quicklaunch.html">QuickLaunch &rarr;</a>
+          </div>
+          <p>Pinned-tool launcher icons embedded directly into Maya's own ToolBox.</p>
+        </div>
+        <div class="card">
+          <div class="card-title-row">
+            <img class="card-icon" src="assets/img/icon-utilities.png" alt="">
+            <a class="card-title" href="app-utilities.html">Utilities &rarr;</a>
+          </div>
+          <p>Small, focused tools that don't warrant their own application:
+          a log/reporter, a secondary Outliner, an up-axis toggle, Settings.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tier-block">
+      <div class="tier-heading">
+        <span class="tier-pill ai-core">Tier 2</span>
+      </div>
+      <h2 style="border:none; padding:0; margin:0 0 4px; font-size:21px;">AI Core</h2>
+      <p class="tier-desc">One shared AI Companion panel, plus the curated,
+      tested APIs each application exposes to it - the capability boundary
+      that keeps AI-generated code constrained and reviewable.</p>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-title-row">
+            <img class="card-icon" src="assets/img/icon-ai-companion.png" alt="">
+            <a class="card-title" href="app-ai-companion.html">AI Companion &rarr;</a>
+          </div>
+          <p>A natural-language-to-reviewable-Python-script panel any
+          application can plug into.</p>
+        </div>
+        <div class="card">
+          <a class="card-title" href="api-clips.html">ClipsAPI &rarr;</a>
+          <p>The curated surface AnimHub exposes to the AI. Extending what the
+          AI can safely do to a clip starts here.</p>
+        </div>
+        <div class="card">
+          <a class="card-title" href="api-ai-providers.html">AI Provider Backend &rarr;</a>
+          <p>The multi-provider backend underneath the AI Companion - client
+          abstraction, the provider registry, the system prompt, key storage.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tier-block">
+      <div class="tier-heading">
+        <span class="tier-pill foundation">Tier 3</span>
+      </div>
+      <h2 style="border:none; padding:0; margin:0 0 4px; font-size:21px;">Shared Foundation</h2>
+      <p class="tier-desc">The base every application and the AI Core are
+      built on - one dockable-window pattern, one auto-discovered menu
+      system, one settings registry, one visual identity.</p>
+      <div class="card-grid">
+        <div class="card">
+          <a class="card-title" href="framework.html">Framework &rarr;</a>
+          <p>Dockable windows, menu discovery, the Settings dialog + registry,
+          config, logging, the dev-reload tool, and the visual design system.</p>
+        </div>
+      </div>
+    </div>
+
+    <h2>Design principles</h2>
+    <p class="dim">A few things are true across every application in the suite,
+    worth knowing before reading anything else.</p>
+
+    <div class="convention-grid">
+      <div class="convention">
+        <div class="glyph">1</div>
+        <h4>Clean-room, not a port</h4>
+        <p>Nothing here is copied from any prior codebase. Where a design is
+        <em>informed by</em> a proven interaction pattern from real production
+        experience, that's called out explicitly - but the implementation is
+        always original.</p>
+      </div>
+      <div class="convention">
+        <div class="glyph">2</div>
+        <h4>Dockable applications, plain-dialog children</h4>
+        <p>A top-level application is a <code>DockableWindow</code> subclass. A
+        dialog opened from within an application (Settings, Script History, a
+        batch-rename prompt) stays a plain <code>QDialog</code>. See
+        <a href="framework.html">Framework</a>.</p>
+      </div>
+      <div class="convention">
+        <div class="glyph">3</div>
+        <h4>Live-write, not Apply/Save/Cancel</h4>
+        <p>Almost every field in every application persists the moment you
+        edit it. There's no batched "Save" step to remember, and no separate
+        "did I save?" state to track.</p>
+      </div>
+      <div class="convention">
+        <div class="glyph">4</div>
+        <h4>Thorough "why" documentation over external docs, historically</h4>
+        <p>Most of this codebase explains its own reasoning inline -
+        confirmed-live gotchas, rejected alternatives, real bugs that shaped a
+        design. This site pulls the important threads together, but the
+        underlying implementation remains the deepest source of truth for any
+        single function's exact behavior.</p>
+      </div>
+    </div>
+  </main>
+</div>
+<footer class="site-footer">
+  Selected technical documentation for Core Flow Tools, an independent R&amp;D
+  project. &middot; <a href="../">&larr; Back to the case study</a>
+</footer>
+</body>
+</html>

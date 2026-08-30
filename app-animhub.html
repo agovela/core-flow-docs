@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AnimHub — Core Flow Tools Docs</title>
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/img/coreflow-logo.png" alt="">
+      <a href="index.html">Core Flow Tools<span class="tag">Technical Docs</span></a>
+    </div>
+    <div class="case-study-link">
+      <a href="../">&larr; Core Flow Tools Case Study</a>
+    </div>
+    <div class="nav-group">
+      <h6>Overview</h6>
+      <ul><li><a href="index.html">Home</a></li></ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
+      <ul>
+        <li><a href="app-animhub.html" class="active">AnimHub</a></li>
+        <li><a href="app-character-setup.html">Character Setup</a></li>
+        <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
+        <li><a href="app-utilities.html">Utilities</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
+      <ul>
+        <li><a href="app-ai-companion.html">AI Companion</a></li>
+        <li><a href="api-clips.html">ClipsAPI</a></li>
+        <li><a href="api-ai-providers.html">AI Provider Backend</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">3</span>Shared Foundation</h6>
+      <ul><li><a href="framework.html">Framework</a></li></ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="doc-header">
+      <div class="tier-pill applications">Tier 1 &middot; Applications</div>
+      <div class="kicker">Animation</div>
+      <div class="title-row">
+        <img class="app-icon" src="assets/img/icon-animhub.png" alt="">
+        <h1>AnimHub</h1>
+      </div>
+      <p class="sub" style="margin-top:14px"><code>dcc/maya/animation/animhub/main_window.py</code> &mdash;
+      <code>CFAnimHubWindow</code> (<code>WINDOW_OBJECT_NAME = "CF_AnimHubWindow"</code>),
+      launched from <strong>Animation &gt; AnimHub</strong>. The clip/take
+      manager and FBX export pipeline &mdash; the largest application in the
+      suite, and a clean-room reimplementation of an animation-clip workflow,
+      informed by years of real production use of a previous, unrelated
+      pipeline rather than a port of its code.</p>
+      <div class="icon-note">Its Maya-menu/QuickLaunch icon sits next to its
+      launcher module (see <a href="framework.html#menu-discovery">Menu
+      discovery</a>) &mdash; the in-app window itself doesn't set its own
+      window icon.</div>
+    </header>
+
+    <div class="design-goals">
+      <div class="dg-head">Design goals</div>
+      <div class="dg-row">
+        <div class="dg-num">1</div>
+        <div class="dg-label">Problem</div>
+        <p class="dg-body">Animators working across a large scene need to
+        manage many independent playback ranges on one shared timeline -
+        preview, retime, and export a subset without losing track of what's
+        finished, what's still in progress, and what shouldn't ship. Ad hoc
+        timeline bookmarks and manual FBX exports don't scale past a handful
+        of ranges, and don't carry export metadata (which character, which
+        path, which animation layers) with them.</p>
+      </div>
+      <div class="dg-row">
+        <div class="dg-num">2</div>
+        <div class="dg-label">Architectural decision</div>
+        <p class="dg-body">Model a "clip" as a first-class, named window into
+        the shared timeline - not a separate file, not a separate layer -
+        carrying its own status, per-character export targets, animation-layer
+        scoping, and preview data as real attributes on a real scene node.
+        Two-way, deliberately <em>non-live</em> sync bridges to Maya's native
+        Time Editor, Bookmark Editor, and Game Exporter mean the tool
+        interoperates with Maya's own systems rather than replacing them
+        outright.</p>
+      </div>
+      <div class="dg-row">
+        <div class="dg-num">3</div>
+        <div class="dg-label">Production benefit</div>
+        <p class="dg-body">A batch of clips can be previewed, retimed,
+        reorganized into groups, and exported to a configurable project
+        convention without ever leaving one window - and because the AI
+        Companion is bound with a curated API scoped to exactly this data
+        model, natural-language requests ("de-overlap these clips with a
+        2-frame gap and bake the result") become constrained, reviewable
+        scripts instead of manual, error-prone timeline surgery.</p>
+      </div>
+    </div>
+
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="AnimHub data flow: a clip node holds range, status, export targets and layer scoping; it drives the export pipeline, and syncs bidirectionally but non-live with Time Editor, Bookmark Editor, and Game Exporter.">
+        <g font-family="'Segoe UI', sans-serif">
+          <rect x="260" y="16" width="200" height="56" rx="8" fill="#26292f" stroke="#7ad4ff"></rect>
+          <text x="360" y="40" text-anchor="middle" font-size="12.5" fill="#dcdcdc" font-weight="600">Clip Node</text>
+          <text x="360" y="58" text-anchor="middle" font-size="10.5" fill="#8b8e96">range &middot; status &middot; export slots</text>
+
+          <rect x="60" y="112" width="150" height="46" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="135" y="140" text-anchor="middle" font-size="11.5" fill="#dcdcdc">Time Editor</text>
+          <rect x="230" y="112" width="150" height="46" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="305" y="140" text-anchor="middle" font-size="11.5" fill="#dcdcdc">Bookmark Editor</text>
+          <rect x="400" y="112" width="150" height="46" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="475" y="140" text-anchor="middle" font-size="11.5" fill="#dcdcdc">Game Exporter</text>
+          <rect x="570" y="112" width="140" height="46" rx="8" fill="#26292f" stroke="#9c85b0" stroke-opacity="0.6"></rect>
+          <text x="640" y="134" text-anchor="middle" font-size="11.5" fill="#dcdcdc">AI Companion</text>
+          <text x="640" y="150" text-anchor="middle" font-size="9.5" fill="#8b8e96">via ClipsAPI</text>
+
+          <rect x="230" y="204" width="260" height="46" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="360" y="232" text-anchor="middle" font-size="12" fill="#dcdcdc">Export Pipeline &rarr; FBX</text>
+
+          <line x1="300" y1="72" x2="135" y2="110" stroke="#5b8fa8" stroke-width="1.3"></line>
+          <line x1="320" y1="72" x2="305" y2="110" stroke="#5b8fa8" stroke-width="1.3"></line>
+          <line x1="380" y1="72" x2="475" y2="110" stroke="#5b8fa8" stroke-width="1.3"></line>
+          <line x1="400" y1="72" x2="640" y2="110" stroke="#5b8fa8" stroke-width="1.3" stroke-dasharray="3 3"></line>
+          <line x1="360" y1="72" x2="360" y2="202" stroke="#7ad4ff" stroke-width="1.5"></line>
+        </g>
+      </svg>
+    </div>
+    <p class="diagram-caption">Sync with Time Editor, the Bookmark Editor, and
+    Game Exporter is deliberately one-shot, not live - each direction is an
+    explicit, user-triggered action, never a background link that could
+    silently drift out of sync.</p>
+
+    <h2 id="core-concept">Core concept: what a clip is</h2>
+    <p>A clip is a <strong>named window into Maya's single shared timeline</strong>
+    &mdash; <code>start</code>/<code>end</code> mark a frame range on the one timeline
+    every clip shares. It is <em>not</em> a separate animation layer, and not
+    a separate file per clip. This distinction matters everywhere in the app:
+    pushing a clip to the Time Editor, baking anim layers, and exporting FBX
+    all operate on "this range of the one timeline," not on any kind of
+    isolated take container.</p>
+
+    <h2 id="clip-data-model">Clip data model</h2>
+    <p>A clip lives on a native Maya <code>network</code> node carrying a set of
+    <code>CF_Clip*</code> attributes (<code>schema.py</code>), applied generically by a
+    declarative <code>AttrSpec</code> table (same pattern as
+    <code>character/schema.py</code>) &mdash; adding a field means editing that
+    table, not hand-writing another <code>cmds.addAttr</code> call.</p>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Attribute</th><th>Kind</th><th>Purpose</th></tr>
+      <tr><td><code>CF_ClipName</code> / <code>CF_ClipStart</code> / <code>CF_ClipEnd</code></td><td>string / long / long</td><td>Name and frame range. Real Maya <code>long</code> attributes, not string-encoded ints.</td></tr>
+      <tr><td><code>CF_ClipStatus</code></td><td>enum</td><td><span class="pill ready">Ready</span> <span class="pill progress">InProgress</span> <span class="pill ignore">Ignore</span></td></tr>
+      <tr><td><code>CF_ClipChecked</code></td><td>bool</td><td>The export-batch checkbox.</td></tr>
+      <tr><td><code>CF_ClipColor</code></td><td>double3</td><td>Row color swatch.</td></tr>
+      <tr><td><code>CF_ClipGroups</code></td><td>string (CSV)</td><td><strong>Membership only</strong> &mdash; see <a href="#groups">Groups</a> for why this alone doesn't make a group real.</td></tr>
+      <tr><td><code>CF_ClipHub</code></td><td>message</td><td>Connection to the singleton hub node (<code>CF_AnimClipsHub</code>), which also holds <code>CF_ClipGroupOrder</code> &mdash; the group <em>registration</em> list.</td></tr>
+      <tr><td><code>CF_ClipBookmark</code></td><td>string</td><td>The paired <code>timeSliderBookmark</code> node's name &mdash; see <a href="#bookmark-sync">Bookmark sync</a> for why this is a plain string, not a connection.</td></tr>
+      <tr><td><code>CF_ClipExportChars</code> (compound, multi)</td><td><code>{char_uuid, enabled, path}</code></td><td>Per-character export slots &mdash; one clip can target several characters. <code>char_uuid</code> matches <code>CFCharacter.uuid</code>, not a node name, so a slot survives a character rename.</td></tr>
+      <tr><td><code>CF_ClipEnableLayers</code> / <code>CF_ClipDisableLayers</code></td><td>string (CSV)</td><td>Anim layer names to force on/off at export &mdash; see <a href="#anim-layer-scoping">Anim layer scoping</a>.</td></tr>
+      <tr><td><code>CF_ClipExportCurveData</code> / <code>CF_ClipExportCurveDataHead</code></td><td>bool</td><td>Schema/UI fields, <strong>not currently acted on by the export pipeline</strong> &mdash; a previous pipeline's version of this feature was specific to a rig system this project has no equivalent of, so this stays a deliberate, documented gap. <span class="tag gap">Gap</span></td></tr>
+      <tr><td><code>CF_ClipLoop</code></td><td>bool</td><td>Stamped onto the exported FBX as a keyed custom attribute (<code>CF_Loop</code>) &mdash; see <a href="#export-pipeline">Export pipeline</a>.</td></tr>
+      <tr><td><code>CF_ClipOverridePath</code></td><td>string</td><td>Clip-level export path override &mdash; wins over any per-character-slot path.</td></tr>
+    </table>
+    </div>
+    <div class="note">
+      <strong>Groups are two-layer, on purpose:</strong> a clip's
+      <code>CF_ClipGroups</code> CSV is just membership. A group name only
+      becomes <em>real</em> (orderable, eventually a UI tab) once it's
+      separately registered in the hub's <code>CF_ClipGroupOrder</code>.
+      Tagging a clip with a never-registered group name does nothing visible
+      by itself &mdash; see <a href="#groups">Groups</a>.
+    </div>
+
+    <section class="hero" id="main-window-tour">
+      <h2><span class="badge">Start here</span> Main window tour</h2>
+      <p class="section-note">What you're looking at the first time you open CF
+      AnimHub &mdash; menu bar down to the bottom bar, top to bottom.</p>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="glyph">&#9776;</div>
+        <h4>Menu bar</h4>
+        <p><strong>File</strong> (Import/Export Clips), <strong>Clips</strong> (Import
+        from Bookmark Manager, batch rename, groups manager, a Clip Preview
+        submenu &mdash; Enable Clip Preview / Generate Missing Previews / Delete
+        All Previews, grouped together), <strong>Characters</strong> (character
+        hierarchy view, panel toggle), <strong>Tools</strong> (Time Editor sync,
+        Game Exporter sync, Clip Previewer, Clip Shuttle, background export,
+        and Ask AI), <strong>Help</strong>.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">&#9635;</div>
+        <h4>Character panel</h4>
+        <p>Sits under the menu bar, above the toolbar; hidden by default,
+        toggled from Characters &gt; Display Character Panel.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">&#128269;</div>
+        <h4>FILTER VIEW bar</h4>
+        <p>Search box, a sort/filter combo (by start frame, by name, or
+        filtered to one status/checked-state), and three range buttons
+        (<strong>Checked</strong> / <strong>Group</strong> / <strong>All</strong>) that set
+        Maya's timeline range to span whichever clip subset.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">&#8677;</div>
+        <h4>Group tabs</h4>
+        <p>One tab per <em>registered</em> group plus "All" and a "+" to
+        create a new one; switching tabs filters the clip list, it does not
+        rebuild per-tab widgets.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">&#9654;</div>
+        <h4>ACTIONS bar</h4>
+        <p>Check All / Expand All toggles, Prev/Current/Next navigation
+        (native reimplementation against the sorted clip list, not Maya's own
+        bookmark-plugin navigation), and <strong>+ Add Clip</strong>.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">&#9636;</div>
+        <h4>Clip rows</h4>
+        <p>One per clip, in Optimized, Compact, or Preview style
+        (<a href="framework.html#animhub-interface-settings">Settings &gt;
+        AnimHub &gt; Interface</a>) &mdash; see
+        <a href="#clip-row-anatomy">Clip row anatomy</a> for the full
+        breakdown.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">&#8595;</div>
+        <h4>Bottom bar</h4>
+        <p><strong>Export FBX</strong>.</p>
+      </div>
+    </div>
+    </section>
+
+    <h3>Corner toolbar</h3>
+    <p>Five icon-only buttons sit in the menu bar's own top-right corner &mdash;
+    left to right: Character Panel toggle, Clip Style cycle, Preview toggle,
+    Clip Previewer launch, and Ask AI.</p>
+    <p><img src="assets/img/AH_icons.png" alt="AnimHub's corner toolbar: five icon buttons"
+       style="border:1px solid var(--border); border-radius:6px; background:var(--bg-elev); padding:6px;"></p>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="glyph"><img src="assets/img/characterPanel.png" alt="" style="width:20px;height:20px;"></div>
+        <h4>Character Panel</h4>
+        <p>Shows/hides the character hierarchy panel under the menu bar - same
+        toggle as Characters &gt; Display Character Panel.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph"><img src="assets/img/clipStyleToggle.png" alt="" style="width:20px;height:20px;"></div>
+        <h4>Clip Style</h4>
+        <p>Cycles every row between Optimized, Compact, and Preview - see
+        <a href="#clip-row-anatomy">Clip row anatomy</a> below.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph"><img src="assets/img/animClip.png" alt="" style="width:20px;height:20px;"></div>
+        <h4>Preview Toggle</h4>
+        <p>Enables/disables the ambient hover-preview popup for the whole
+        window - see <a href="#hover-preview-popup">Hover preview popup</a>.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph"><img src="assets/img/ClipViewer.png" alt="" style="width:20px;height:20px;"></div>
+        <h4>Clip Previewer</h4>
+        <p>Opens the standalone gallery window - see
+        <a href="#cf-clip-previewer">Clip Previewer (gallery window)</a>.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph"><img src="assets/img/icon-ai-companion-inapp.png" alt="" style="width:20px;height:20px;border-radius:4px;"></div>
+        <h4>Ask AI</h4>
+        <p>Opens the shared AI Companion, bound with AnimHub's own curated
+        API - see <a href="#ai-companion-integration">AI Companion
+        integration</a>.</p>
+      </div>
+    </div>
+
+    <h2 id="clip-row-anatomy">Clip row anatomy</h2>
+    <p><code>clip_row_widget.py</code>'s <code>ClipRowWidget</code> is the single
+    most-interacted-with piece of UI in the app &mdash; one instance per clip,
+    rebuilt from scratch on every filter/sort/refresh (not diffed/reused).
+    It's one parametrized class covering all three row styles, not three
+    separate widget files &mdash; AnimHub has no legacy-file-pairing
+    constraint forcing a split the way some ported UIs do.</p>
+    <pre><code>ClipRowWidget(clip, style="optimized", initial_expanded=False, parent=None)</code></pre>
+    <p><strong>Signals</strong>: <code>changed()</code> (any field write),
+    <code>filterRelevantChanged()</code> (only for edits that could move the row
+    in/out of the current filter/sort &mdash; checked, name, status;
+    deliberately <em>not</em> fired for start/end, since a spin box fires
+    per-keystroke while focused and rebuilding the row list mid-edit would
+    yank focus away), <code>expandedChanged(clip, bool)</code>,
+    <code>duplicateRequested(clip)</code>, <code>deleteRequested(clip)</code>,
+    <code>exportRequested(clip)</code> (export just this one clip, regardless of
+    its checked state).</p>
+
+    <h3>The three styles</h3>
+    <ul>
+      <li><strong>Optimized</strong> &mdash; single-line collapsed header: check
+        glyph, expand chevron, color-dot, sync button, name field, start/end
+        spin boxes, an <img src="assets/img/clipExport.png" alt="export icon"
+        style="width:14px;height:14px;vertical-align:-2px;"> export button. No
+        status pill until expanded.</li>
+      <li><strong>Compact</strong> &mdash; two-line collapsed header (built for
+        long names): row 1 is checkbox + full-width name + export button; row
+        2 is color dot, sync, start/end, a status pill, and the chevron.</li>
+      <li><strong>Preview</strong> &mdash; the compact header's two-line layout,
+        minus the status pill (freeing that space), plus a persistent small
+        thumbnail (<code>thumbnail_render.HoverPreviewThumbnail</code>) docked at
+        the row's right edge. Hovering <em>that thumbnail</em> always animates
+        the captured frame sequence in place &mdash; independent of the ambient
+        hover-popup setting described below, since the two would otherwise
+        compete for the same hover.</li>
+    </ul>
+    <div class="shot-row">
+      <div class="shot">
+        <img src="assets/img/ClipView_Optimized.png" alt="Optimized row style: single-line header">
+        <div class="shot-label">Optimized</div>
+        <p class="shot-caption">Maximum density - one clip per line, nothing
+        but the fields you need to scrub and check off a long list quickly.</p>
+      </div>
+      <div class="shot">
+        <img src="assets/img/ClipView_Compact.png" alt="Compact row style: two-line header with status pill">
+        <div class="shot-label">Compact</div>
+        <p class="shot-caption">Trades density for readability - a
+        full-width name field for long clip names, and the status pill
+        visible without expanding the row.</p>
+      </div>
+      <div class="shot">
+        <img src="assets/img/ClipView_Preview.png" alt="Preview row style: two-line header with a persistent thumbnail">
+        <div class="shot-label">Preview</div>
+        <p class="shot-caption">Swaps the status pill for a persistent
+        thumbnail - built for visually scanning a list once clips actually
+        have captured preview frames.</p>
+      </div>
+    </div>
+
+    <p><strong>Expanded body</strong> (same for all three styles, toggled by the
+    chevron): three sections, each its own <code>QGroupBox</code> with an
+    explicit dark background (a bare <code>QGroupBox</code> is transparent, and
+    the row's own status-tinted gradient would otherwise bleed through it):</p>
+    <ul>
+      <li><strong>Characters</strong> &mdash; one row per export-character slot
+        (<code>character_export_row.py</code>, see
+        <a href="#clip-data-model">Clip data model</a>), plus an "Add
+        Character" row (combo of not-yet-added scene characters + button).</li>
+      <li><strong>Animation Layers</strong> &mdash; read-only Enable:/Disable:
+        summary plus an "Edit Layers..." button opening
+        <code>ClipAnimLayerAssignDialog</code> (see
+        <a href="#assigning-enabledisable-layers">below</a>).</li>
+      <li><strong>Export Options</strong> &mdash; Export Curve Data / Export Head
+        Curves (disabled unless curve data is on) / Loop checkboxes, plus an
+        override-path field + browse button.</li>
+      <li>An <strong>actions row</strong> at the bottom: (Optimized/Preview only,
+        since those styles' headers have no room for it) a status pill, then
+        Capture Preview / Duplicate / Delete.</li>
+    </ul>
+    <div class="shot-row" style="grid-template-columns: minmax(260px, 380px);">
+      <div class="shot">
+        <img src="assets/img/CliopView_Expanded.png" alt="Expanded row body: Characters, Animation Layers, and Export Options sections">
+        <div class="shot-label">Expanded</div>
+        <p class="shot-caption">All three sections at once, plus the actions
+        row - Ready status pill, Capture Preview / Duplicate / Delete.</p>
+      </div>
+    </div>
+
+    <h3 id="current-clip-highlighting">Current-clip highlighting</h3>
+    <p>Driven <strong>externally</strong>, not by anything inside the row itself:
+    the main window registers a <code>timeChanged</code> scriptJob and, on every
+    fire, calls
+    <code>widget.set_current(widget.clip.start &lt;= cur &lt;= widget.clip.end)</code>
+    on every visible row. <code>set_current()</code> just flips a flag and
+    re-tints the card &mdash; there's no scriptJob or timer living inside
+    <code>ClipRowWidget</code> itself. "Current" overrides the status-color tint
+    outright (not blended), so it's unmistakable rather than competing with
+    the status signal &mdash; matching the same precedence the interaction
+    pattern this was adapted from uses.</p>
+
+    <h3>Ctrl-drag scrub / Alt-click play-once</h3>
+    <p>A custom event filter installed on the row and every direct header
+    child widget &mdash; explicitly <strong>excluding</strong> anything inside the
+    expanded body, since the body's sections rebuild their children
+    dynamically (a filter installed once at construction would go stale)
+    while header widgets never change identity after construction.</p>
+    <ul>
+      <li><strong>Ctrl+click-drag</strong> on the header scrubs: syncs the
+        timeline to the clip's range, then converts horizontal mouse movement
+        to frame movement (4 pixels per frame), clamped to the clip's own
+        start/end.</li>
+      <li><strong>Alt+click</strong> syncs the timeline and plays once
+        (<code>cmds.playbackOptions(loop="once")</code> +
+        <code>cmds.play(forward=True)</code>).</li>
+    </ul>
+
+    <h3 id="hover-preview-popup">Hover preview popup</h3>
+    <p>For Optimized/Compact rows (Preview style has its own always-on
+    thumbnail instead): once the corner toolbar's Preview Toggle is enabled,
+    hovering any row starts a delay timer (<a href="framework.html#animhub-interface-settings">Settings
+    &gt; AnimHub &gt; Interface</a>'s preview delay, default 1200ms), then shows
+    a small floating <code>ClipPreviewPopup</code>
+    (<code>clip_preview_popup.py</code>) near the cursor, animating back
+    through the clip's own captured preview frames right where the cursor is
+    &mdash; a quick way to check what a clip actually looks like without
+    scrubbing the timeline or leaving the row list.</p>
+    <div class="shot-row">
+      <div class="shot">
+        <img src="assets/img/OverClip_animPreviewer.png" alt="Preview Toggle enabled in the corner toolbar, with the hover popup playing back a clip's cached animation over the row list">
+        <div class="shot-label">Hover playback, triggered</div>
+        <p class="shot-caption">Preview Toggle (highlighted, corner toolbar) is on, so hovering
+        <code>as_crea_chicken_loco_fidget_01</code> pops the cached preview frames right over the row
+        &mdash; no scrubbing or opening a separate window needed.</p>
+      </div>
+    </div>
+    <p>Playback speed itself is also a live, user-adjustable setting rather
+    than a hardcoded frame rate &mdash; see
+    <a href="#clip-preview-thumbnails">Clip preview thumbnails</a> below for
+    the fps default and how it's applied. A second watchdog timer polls
+    whether the cursor is still actually over the row every 250ms &mdash; a
+    deliberate backstop, since Enter/Leave events aren't always reliably
+    delivered crossing child widgets, or into Maya's native viewport. The
+    same watchdog-poll pattern is used independently by the gallery tiles in
+    <a href="#cf-clip-previewer">Clip Previewer</a> for the same reason.</p>
+
+    <h3 id="assigning-enabledisable-layers">Assigning enable/disable layers</h3>
+    <p><code>anim_layer_dialog.py</code>'s <code>ClipAnimLayerAssignDialog(enable_names,
+    disable_names, parent=None)</code> &mdash; a three-column drag-and-drop shuttle
+    (Disable | Available | Enable), distinct from
+    <a href="#anim-layer-detection">AnimLayerBakeDialog</a> (which bakes
+    layers down before a Time Editor push; this dialog only <em>assigns</em>
+    which layers get enabled/disabled at export time, never bakes anything).
+    It has no knowledge of <code>CFClip</code> at all &mdash; purely two lists of
+    layer name strings in, two lists out (<code>.enable_layers()</code> /
+    <code>.disable_layers()</code>), so it's reusable independent of the clip row
+    context. A layer name the clip already references that's no longer in
+    the scene still round-trips through unchanged, marked "(not in scene)",
+    rather than being silently dropped.</p>
+
+    <h3>Status pill</h3>
+    <p><code>status_chip.py</code>'s <code>StatusChip(status, parent=None)</code> &mdash; a
+    small capsule button; clicking cycles
+    <span class="pill ready">Ready</span> &rarr;
+    <span class="pill progress">InProgress</span> &rarr;
+    <span class="pill ignore">Ignore</span> &rarr; Ready. Emits
+    <code>statusChanged(new_status)</code> on a user click-cycle only
+    (<code>set_status()</code> itself doesn't emit). Its label/color lookup
+    tables are keyed by <code>ClipStatus.value</code> (a plain int), never the
+    enum member object.</p>
+    <div class="note warn">
+      <strong>Confirmed live:</strong> RefreshCoreTools' deepest-first reload
+      order reloads this module before <code>schema.py</code> redefines
+      <code>ClipStatus</code> as a new class, so a dict keyed by the <em>old</em>
+      enum member object goes stale (Enum equality is identity-based) and
+      raises <code>KeyError</code> on the very next status read anywhere else in
+      the app. <code>.value</code> is a plain int and survives a reload
+      unaffected &mdash; the same pattern <code>clip_row_widget.py</code> uses for
+      its own status-color lookup.
+    </div>
+
+    <h3 id="what-the-colors-mean">What the colors mean</h3>
+    <p>Every clip row carries two coordinated color cues &mdash; a thin stripe
+    down its left edge, and a subtle full-card background tint blended from
+    that same color &mdash; so a row's state reads at a glance without needing
+    to open it or read the status pill's text. Only one color ever wins:
+    <strong>current-clip overrides status outright</strong> (see
+    <a href="#current-clip-highlighting">Current-clip highlighting</a>
+    above), it never blends with whatever status color was showing.</p>
+    <div class="legend">
+      <div class="swatch">
+        <span class="dot" style="background:var(--ready)"></span>
+        <div>
+          <h4>Ready <code>#7da1b7</code></h4>
+          <p>This clip's animation is finished and expected to export
+          cleanly. Light grayish-blue &mdash; deliberately calm, not a loud
+          "go" green, so a list full of finished clips doesn't visually
+          shout.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="dot" style="background:var(--in-progress)"></span>
+        <div>
+          <h4>InProgress <code>#d1913d</code></h4>
+          <p>Still being worked on. Muted amber-orange &mdash; the same
+          "attention, but not urgent" language the rest of CoreTools' theme
+          reserves for its accent color.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="dot" style="background:var(--ignore)"></span>
+        <div>
+          <h4>Ignore <code>#7a7d84</code></h4>
+          <p>Excluded from export. Rendered as a flat neutral gray with
+          <strong>no tint at all</strong> on the card background (only the
+          status pill/stripe carry the color) &mdash; a row you're not
+          exporting is meant to visually recede, not compete for
+          attention.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="dot" style="background:var(--current-clip)"></span>
+        <div>
+          <h4>Current clip <code>#9c85b0</code></h4>
+          <p>The playhead is somewhere inside this clip's frame range right
+          now. Muted mauve/lilac &mdash; deliberately not reusing any other
+          color in the palette, since this needs to read as its own,
+          unmistakable signal. Applied at a stronger blend than status tints
+          get, and always wins over whatever status color the row would
+          otherwise show.</p>
+        </div>
+      </div>
+    </div>
+    <p class="dim">Driven by <code>clip_row_widget.py</code>'s
+    <code>_refresh_card_style()</code> &mdash; the stripe uses the color at full
+    strength, the card background blends it into the row's normal
+    gray gradient (<code>theme.mix_color()</code>) at a lighter ratio so the
+    tint reads as a wash, not a solid fill.</p>
+
+    <p>That status tint is <strong>independent</strong> of the small round dot
+    at the very left of each row - the dot is a per-clip
+    <strong>custom color swatch</strong> (<code>CF_ClipColor</code>, set via
+    "Set Color for Checked..." or <code>clips.set_color()</code>), not a
+    status indicator. A clip can be <span class="pill ready">Ready</span>
+    <em>and</em> carry its own custom dot color at the same time - useful for
+    grouping clips visually by character, sequence, or any convention a team
+    wants, on top of (not instead of) status:</p>
+    <div class="shot-row" style="grid-template-columns: minmax(260px, 420px);">
+      <div class="shot">
+        <img src="assets/img/Clip_ColorCoding.png" alt="Four clip rows, each with its own custom color swatch dot">
+        <div class="shot-label">Custom color swatches</div>
+        <p class="shot-caption">Four different clips, four different
+        user-assigned dot colors - independent of whatever each clip's own
+        status happens to be.</p>
+      </div>
+    </div>
+
+    <h2 id="time-editor-integration">Time Editor integration</h2>
+    <p><code>time_editor_sync.py</code> &mdash; reads and writes Maya's own Time
+    Editor clips, independent of any Time Editor panel being open (confirmed
+    live: pure node/attribute queries via
+    <code>cmds.timeEditorTracks</code>/<code>timeEditorClip</code>, no UI/panel state
+    needed for reading).</p>
+
+    <h3>Reading: TE &rarr; AnimHub</h3>
+    <p><strong>Tools &gt; Sync Clips to Timeline Editor</strong> reads whatever's
+    currently in the Time Editor and creates/updates matching AH clips by
+    name. This is a <strong>one-time snapshot</strong>, not a live link &mdash; a
+    later Time Editor edit has no effect on the AH clip until Sync is run
+    again. Time Editor is treated as the <strong>source of truth</strong> for this
+    direction.</p>
+    <p><code>TimeEditorSyncDialog(te_clip_count, existing_ah_clip_count,
+    parent=None)</code> is the options prompt: a label reporting how many Time
+    Editor clips were found; if AH already has clips, a radio choice between
+    <strong>Add/Update</strong> (default &mdash; merge into existing AH clips by
+    name match) and <strong>Replace All</strong> (clears every existing AH clip
+    first); and always a second radio choice between <strong>Keep Animation in
+    Time Editor</strong> (default) and <strong>Bake Keys Back to Scene</strong>
+    (restores real scene keyframes for the ranges just adopted, via
+    <code>timeEditorBakeClips</code>, then removes the TE clips).</p>
+
+    <h3>Writing: AnimHub &rarr; TE</h3>
+    <p><strong>Tools &gt; Push Clips to Timeline Editor</strong>
+    (<code>push_clips_to_time_editor</code>) creates one Time Editor clip per AH
+    clip, all driven from a <strong>single</strong> <code>timeEditorAnimSource</code>
+    built from the current selection &mdash; or, if nothing is selected, from
+    every animated object in the scene (<code>list_animated_objects()</code>,
+    which correctly traces through anim-layer blend-node chains to the real
+    driven transform, not just immediate curve connections).</p>
+    <p><strong>Hierarchy expansion</strong>: an explicit selection is expanded to
+    include every descendant transform/joint (<code>_include_hierarchy</code>)
+    before pushing. Without this, selecting just a rig's root and pushing
+    left every child joint's keys untouched by the resulting clip's own
+    retiming in the Time Editor.</p>
+    <p><strong>Anim Layer check before push</strong>: if any selected object has a
+    genuinely anim-layer-driven attribute, a dialog offers to bake the layers
+    down first &mdash; see
+    <a href="#anim-layer-detection">Anim Layer detection and baking</a>.</p>
+    <div class="note">
+      <strong>A note on batching</strong>
+      (<code>push_clips_to_time_editor_batched</code>): an earlier version split
+      the push across many single-object batches, specifically to dodge a
+      confirmed intermittent hang in Maya's own
+      <code>timeEditorAnimSource -addSelectedObjects</code> command on one
+      large/complex production rig (60 objects worked once then hung later at
+      the same size; only calling it one object at a time was 100% reliable
+      across 144 controls, zero failures). That batched path is <strong>not the
+      default</strong> &mdash; the single-call version above is, since batching
+      fragmented every normal push into one clip per object, needing a second
+      grouping pass (<code>group_clips_by_name</code>) just to be usable again.
+      Kept available for the pathological large-rig case, callable directly,
+      but not wired into the UI.
+    </div>
+
+    <h2 id="bookmark-sync">Bookmark sync</h2>
+    <p>Every AH clip gets a paired Maya <code>timeSliderBookmark</code> node
+    (<code>bookmark_sync.py</code>), kept live-synced (name/start/end/color) on
+    every edit to the clip &mdash; so Maya's own native Bookmark Editor and
+    timeline ruler always reflect the current clip list.</p>
+    <div class="note warn">
+      <strong>Deliberately a plain stored string (<code>CF_ClipBookmark</code>),
+      not a connection.</strong> Confirmed live: deleting a
+      <code>timeSliderBookmark</code> node cascades to delete <em>anything</em>
+      connected to it, in either direction, even a single non-message-type
+      connection. A connection-based design would let a user deleting a
+      bookmark in Maya's own Bookmark Editor silently delete the paired AH
+      clip too &mdash; the string-plus-explicit-<code>setAttr</code> design avoids
+      that entirely; deleting the bookmark only orphans the string reference,
+      never cascades into the clip.
+    </div>
+    <p>A marker boolean attribute on every AnimHub-generated bookmark
+    (<code>is_ah_generated_bookmark()</code>) lets other code (notably
+    <a href="#one-shot-bookmark-import">the one-shot bookmark importer</a>)
+    distinguish AH's own shadow bookmarks from a user's real,
+    independently-created ones, robust even if the owning clip was later
+    deleted outside the normal API.</p>
+    <p>If a bookmark already has an existing connection from some other tool
+    (e.g. a legacy pipeline's own bookmark-driven navigation system) when AnimHub
+    takes it over, that connection is force-broken rather than left in place
+    &mdash; AnimHub always takes full ownership of a bookmark it's synced to.</p>
+
+    <h2 id="anim-layer-detection">Anim Layer detection and baking</h2>
+    <p><code>anim_layer_bake.py</code> &mdash; used before a Time Editor push (and
+    available generally) to detect and optionally flatten anim-layer-driven
+    animation.</p>
+    <ul>
+      <li><strong>Genuine-layering detection</strong>:
+        <code>cmds.animLayer(addSelectedObjects=True)</code> creates a blend node
+        for <em>every</em> keyable attribute of an object regardless of
+        whether that specific attribute is actually keyed on the layer. The
+        real signal is whether the blend node's <code>.inputB</code> has an
+        incoming connection &mdash; <code>find_animlayer_driven_attrs()</code>
+        checks that, not mere blend-node presence, to avoid false positives.</li>
+      <li><strong>Multi-layer stacks</strong>: walks <code>inputA</code> repeatedly to
+        find every layer in a stack, not just the topmost one &mdash; a real bug
+        this fixes was a deeper <em>locked</em> layer going undetected because
+        only the first blend node was ever checked.</li>
+      <li><strong>Locked layers</strong>: <code>find_locked_layers()</code> surfaces
+        which genuinely-layered layers are locked, so the bake dialog can
+        offer to temporarily unlock them (re-locking afterward, in a
+        <code>finally</code>) rather than silently failing to bake a locked
+        layer's contribution.</li>
+      <li><strong>Baking</strong>: <code>bake_animlayers_for_objects(objects, start,
+        end, unlock_layers=())</code> runs <code>cmds.bakeResults(...,
+        removeBakedAttributeFromLayer=True, removeBakedAnimFromLayer=True,
+        ...)</code>, only unlocking (and later re-locking) exactly the layers it
+        actually had to unlock.</li>
+    </ul>
+    <p><code>animhub/anim_layer_bake_dialog.py</code> (<code>AnimLayerBakeDialog</code>)
+    is the CF UI for this: shows the affected attribute count and any locked
+    layers, with a "temporarily unlock these layers for this bake" checkbox
+    (unchecked by default), and Bake &amp; Continue / Continue Without Baking /
+    Cancel.</p>
+
+    <h2 id="scene-retiming">Scene retiming</h2>
+    <p><code>scene_retime.py</code>'s <code>normalize_start_to_zero(objects=None)</code>
+    shifts every keyframe on the given objects (or every animated object in
+    the scene) so the earliest key lands at frame 0, <strong>in one pass</strong>
+    over the underlying animCurve nodes &mdash; not per-object. This exists
+    specifically because a naive two-pass approach (shift once via each
+    object's own transform, once via the animCurve nodes directly) shifts the
+    <em>same</em> underlying curve twice through two different paths, silently
+    doubling the offset. This is exposed to the AI Companion as
+    <code>clips.offset_all_keys_to_start_at_zero()</code> &mdash; see
+    <a href="api-clips.html">ClipsAPI</a>.</p>
+
+    <h2 id="export-pipeline">Export pipeline</h2>
+    <p><code>export_pipeline.py</code> &mdash; given a clip and its
+    export-character slots, resolves an output path, sets up scene state, and
+    calls Maya's <code>FBXExport</code>.</p>
+    <p><strong>Path resolution order</strong> (first match wins):</p>
+    <ol>
+      <li><code>clip.override_path</code> (a folder), if set &mdash; wins over
+        everything.</li>
+      <li>The slot's own explicit path (a full file path).</li>
+      <li>Project-root convention:
+        <code>&lt;project_root&gt;/Animations/&lt;CharacterExportName&gt;/&lt;CharacterExportName&gt;_&lt;ClipName&gt;.fbx</code>,
+        via <code>core.project.get_project_root()</code>.</li>
+      <li>If no project root resolves,
+        <a href="framework.html#animhub-export-settings">Settings &gt; AnimHub
+        &gt; Export</a>'s "Global export folder."</li>
+      <li>Last resort: <code>&lt;scene_dir&gt;/fbx_export/&lt;...&gt;.fbx</code>.</li>
+    </ol>
+    <div class="note warn">
+      Paths are always normalized to forward slashes before being handed to
+      <code>mel.eval()</code> &mdash; confirmed live that an unnormalized Windows
+      path gets silently corrupted by MEL's own escape-character parsing,
+      causing an export that <em>reports success while writing to the wrong
+      location</em>.
+    </div>
+    <p><strong><a href="framework.html#animhub-export-settings">Settings &gt;
+    AnimHub &gt; Export</a></strong> is also where tier 3's
+    project root mode (Maya Project / P4 Workspace / Custom) is configured
+    &mdash; it used to live on the generic Settings &gt; Project page, but moved
+    here since this export path resolution was always its only real consumer.
+    It still reads/writes the exact same <code>"project"</code>
+    config keys <code>core.project.get_project_root()</code> itself reads,
+    regardless of which UI wrote them &mdash; only the control surface moved,
+    not the underlying shared config.</p>
+    <p><strong>Bake-at-origin</strong> (a character with
+    <code>bake_mode == BakeMode.ORIGIN</code>): duplicates the export
+    hierarchy, unparents it, <code>parentConstrain</code>s the duplicate back to
+    the original, bakes only the <em>duplicate's root</em> transform channels,
+    deletes the constraint. This captures the original's real world-space
+    motion into the parentless duplicate's local channels &mdash; it does not
+    "zero the root," which would erase motion rather than re-origin it.
+    Children keep their existing local (skin/rig-driven) animation untouched.
+    World-mode characters (the default) export the real node directly, no
+    duplication.</p>
+    <p><strong>FBX flags</strong>: no input connections, no cameras/lights, no
+    constraints/instances/smoothing groups, bake complex animation at step 1,
+    split into takes.</p>
+    <p><strong>File Type</strong> (ASCII/Binary) is a
+    <a href="framework.html#animhub-export-settings">Settings &gt; AnimHub &gt;
+    Export</a> control too, defaulting to <strong>ASCII</strong>. This pipeline embeds
+    real per-clip metadata onto the exported node (the Loop flag below), and
+    ASCII keeps that inspectable/diffable the way this pipeline is meant to
+    be used &mdash; switching to Binary shows a confirmation first (reverts to
+    ASCII if declined) rather than silently changing it. Binary is still
+    fully supported once confirmed.</p>
+    <p><strong>Loop flag</strong>: <code>clip.loop</code> gets baked onto the exported
+    node as a keyed boolean custom attribute (<code>CF_Loop</code>), keyed at
+    both start and end (even though constant) because FBX's
+    bake-complex-animation step only reliably exports attributes that
+    actually have keyed animation.</p>
+    <p><strong>Perforce</strong>: if P4 is available, <code>add_or_checkout()</code>s
+    the output path before writing.</p>
+    <div class="note">
+      <strong>No AI-callable export method exists anywhere</strong> &mdash; see
+      <a href="api-clips.html">ClipsAPI</a>. Export is deliberately restricted
+      to a human clicking a real button (Export FBX, the per-row export
+      button, or <a href="#background-export">background export</a>).
+    </div>
+    <p>Entry points: <code>export_clip(clip)</code> (one clip, every enabled
+    slot), <code>export_clips(collection, force_all=False, on_progress=None)</code>
+    (batch &mdash; defaults to <code>collection.checked()</code>, or every
+    non-Ignore clip if <code>force_all=True</code>).</p>
+
+    <h2 id="anim-layer-scoping">Anim layer scoping at export</h2>
+    <p><code>layer_manager.py</code> maps a clip's
+    <code>enable_layers</code>/<code>disable_layers</code> onto real animLayer mute
+    state, scoped to <em>just</em> the layers named &mdash; every other layer's
+    mute state is left untouched. If a layer name appears in both lists,
+    disable wins (applied second, unconditionally).
+    <code>LayerScope(clip)</code> is a context manager: snapshots every layer's
+    mute state on enter, applies the clip's config, and restores the exact
+    snapshot on exit (even on exception) &mdash; <code>export_clip()</code> wraps
+    its whole per-character-slot export loop in this, so an export never
+    leaves the scene's layer visibility changed afterward.</p>
+
+    <h2 id="clip-preview-thumbnails">Clip preview thumbnails</h2>
+    <p><code>clip_preview.py</code> captures small (220x124) JPEG frame-sequence
+    playblasts per clip for the hover-preview thumbnail &mdash; separate from
+    any full-resolution review playblast. Requires the scene to already be
+    saved (previews live at <code>&lt;scene_dir&gt;/_previews/&lt;clip_name&gt;/</code>) &mdash;
+    the most common <code>capture_preview()</code> failure. Old frames are
+    deleted before a new capture, so a shortened clip doesn't leave orphaned
+    trailing frames from a longer previous one.</p>
+    <p><code>thumbnail_render.py</code> composites a source frame into a
+    rounded-corner thumbnail (<code>compose_thumbnail_pixmap</code>) &mdash; a
+    <code>QLabel</code> stylesheet's <code>border-radius</code> only rounds the
+    label's own background, not a pixmap drawn on top, so this does the
+    rounding itself onto a real-alpha <code>QImage</code>.
+    <code>HoverPreviewThumbnail</code> is the reusable widget (used both inline
+    in a clip row and in the Clip Previewer's gallery tiles) that animates
+    through captured frames on hover, sharing one playback speed with
+    <code>ClipPreviewPopup</code> so nothing descended from either runs at a
+    different cadence.</p>
+    <div class="note">
+      <strong>Playback speed is a live, user-adjustable setting</strong> &mdash;
+      <a href="framework.html#animhub-interface-settings">Settings &gt; AnimHub &gt;
+      Interface</a>'s "Preview playback speed" (fps,
+      default 52, i.e. ~19ms/frame). <code>clip_preview.frame_interval_ms()</code>
+      reads it fresh from <code>UserConfig</code> on every call, no caching;
+      both <code>ClipPreviewPopup.start()</code> and
+      <code>HoverPreviewThumbnail.start_animation()</code> re-read it and
+      re-apply it to their own <code>QTimer</code> via <code>setInterval()</code>
+      at the START of every hover, not just once at construction &mdash; so a
+      Settings change takes effect on the very next hover in an already-open
+      window, no RefreshCoreTools or Maya restart needed. This setting
+      replaced a series of hardcoded passes (80ms &rarr; 33ms &rarr; 16ms &rarr;
+      19ms) before it became clear this just needed to be a real,
+      user-facing setting.
+    </div>
+
+    <h2 id="cf-clip-previewer">
+      <img src="assets/img/icon-clip-previewer.png" alt=""
+           style="width:24px;height:24px;border-radius:6px;border:1px solid var(--border);vertical-align:-6px;margin-right:4px;">
+      Clip Previewer (gallery window)
+    </h2>
+    <p><code>clip_previewer_window.py</code> &mdash; <code>CFClipPreviewerWindow</code>,
+    opened from <strong>Tools &gt; Clip Previewer</strong> or the corner toolbar's
+    dedicated launch button. A standalone dockable gallery view (search +
+    group filter, a responsive grid of preview tiles) as an alternative to
+    AnimHub's own text/field-dense row layout. Reads the same scene clips
+    (<code>model.ClipCollection</code>) but is fully decoupled &mdash; neither
+    window owns the other, and both read the same scene-level group registry
+    so a group created in AnimHub's own
+    <a href="#groups">Groups dialog</a> shows up here automatically (this
+    window can filter by group, not create/rename/delete one).</p>
+    <div class="shot-row">
+      <div class="shot">
+        <img src="assets/img/ClipPreviewereUI.png" alt="AnimHub's main window docked beside the standalone Clip Previewer gallery window">
+        <div class="shot-label">AnimHub + Clip Previewer, side by side</div>
+        <p class="shot-caption">The Clip Previewer (right) is a separate top-level
+        window, not a panel bolted onto AnimHub (left) &mdash; each tile mirrors one
+        row's clip and renders the same captured preview frames as the row's own
+        hover popup, just larger and always visible instead of appearing on hover.</p>
+      </div>
+    </div>
+    <p>Each tile is a <code>ClipPreviewTile(clip, size, parent=None)</code>
+    (<code>clip_preview_tile.py</code>) &mdash; a bigger, click/right-click-driven
+    sibling of the row's own "Preview"-style inline thumbnail, sharing the
+    same <code>thumbnail_render.HoverPreviewThumbnail</code> rendering/hover-animation
+    logic rather than reimplementing it. Left-click emits
+    <code>syncRequested</code> if the clip already has a preview, or
+    <code>generateRequested</code> if not ("click to generate"); right-click
+    offers Sync Take / Generate Clip Preview / Delete Preview
+    (shown-but-disabled without a preview) / <strong>Export</strong> (calls
+    <code>export_pipeline.export_clip</code> directly).</p>
+    <p>This window's own Tools menu also has scene-wide "Generate Missing
+    Previews" / "Delete All Previews" &mdash; the same two actions AnimHub's own
+    Clips &gt; Clip Preview submenu offers, operating on the same collection
+    either way. Both always operate on the <em>entire</em> scene collection
+    regardless of the current search/filter, so a maintenance sweep's
+    definition of "all" doesn't silently depend on whatever's typed in the
+    search box.</p>
+    <p>The grid's column count recomputes on every resize based on the actual
+    scroll-area width &mdash; a wide floating window shows several tiles per
+    row, a narrow docked panel collapses to one column.</p>
+
+    <h2 id="groups">Groups</h2>
+    <p><strong>Clips &gt; Manage Groups</strong> opens <code>ClipGroupsDialog</code>
+    (<code>groups_dialog.py</code>) &mdash; a three-column shuttle (All Clips |
+    Groups | Clips in Group) for creating/renaming/deleting groups and
+    managing membership, with independent filters per column. Every action
+    writes through immediately, same live-write convention as the rest of the
+    app. <code>"All"</code> is reserved and can't be used as a group name.
+    Deleting a group only removes clip <em>membership</em> in it &mdash; clips
+    themselves are untouched.</p>
+    <p>Remember the two-layer model from
+    <a href="#clip-data-model">Clip data model</a>: this dialog is the only
+    place group <em>registration</em> (what makes a group a real, orderable
+    tab) happens &mdash; tagging a clip's <code>CF_ClipGroups</code> elsewhere
+    (including via <code>ClipsAPI.add_to_group()</code>) never creates the tab
+    by itself.</p>
+
+    <h2 id="batch-rename">Batch rename</h2>
+    <p><strong>Clips &gt; Batch Rename</strong> (<code>batch_rename_dialog.py</code>)
+    &mdash; prefix, suffix, find/replace (literal or regex), and optional
+    zero-padded sequential numbering. Operates on checked clips if any are
+    checked, else every clip. The core renaming logic,
+    <code>apply_rename(name, index, params)</code>, is a pure function with no
+    widget/clip dependency &mdash; order of operations is find/replace first,
+    then prefix+name+suffix, then (if enabled) the sequential number appended
+    last. Invalid regex is caught and silently no-ops for that clip rather
+    than raising.</p>
+
+    <h2 id="clip-shuttle">Clip Shuttle (floating nav bar)</h2>
+    <p><strong>Tools &gt; Clip Shuttle</strong> (<code>clip_shuttle_dialog.py</code>)
+    opens a small, frameless, translucent, always-on-top pill mirroring the
+    main window's Prev/Current/Next/Checked/All actions, so you can scrub
+    clips without the full AnimHub window in the way. It's a thin remote
+    control &mdash; every button delegates straight to the owning main window's
+    own methods, it doesn't reimplement any nav/range logic itself. Non-modal
+    (<code>.show()</code>, stays open alongside the main window).</p>
+
+    <h2 id="import-export-metadata">Import/export clip metadata</h2>
+    <p><strong>File &gt; Import/Export Clips</strong> (<code>clip_io.py</code>)
+    snapshots/restores clip <strong>metadata</strong> (name, range, status,
+    checked, color, groups, layers, loop, curve-data flags, override path) to/from
+    a plain JSON file &mdash; distinct from FBX export, which writes animation
+    data, not this app's own bookkeeping. Import matches an existing clip
+    <strong>by name only</strong> (no uuid/node matching) &mdash; creating a new
+    clip if no name match is found, otherwise updating the existing one's
+    fields in place. Renaming a clip between an export and a later import
+    will create a duplicate rather than update the original clip.</p>
+
+    <h2 id="background-export">Background (headless) export</h2>
+    <p><strong>Tools &gt; Export Clips FBX on Background</strong> launches
+    <code>tools/headless_export_clips.py</code> as a genuinely separate
+    <code>mayapy</code> subprocess (not Maya's own background evaluation) via
+    <code>QProcess</code>, streaming output into a live console and a
+    timestamped log file. The scene must already be saved (you're prompted to
+    save first). The headless script opens the saved scene fresh, exports
+    every <em>checked</em> clip (no <code>force_all</code> option here), and
+    writes a JSON results summary the main window reads back for a final
+    success/failure dialog.</p>
+
+    <h2 id="one-shot-bookmark-import">One-shot bookmark import</h2>
+    <p><strong>Clips &gt; Import from Bookmark Manager...</strong>
+    (<code>tools/sync_clips_with_bookmarks.py</code>) is a
+    <strong>one-directional, one-shot</strong> migration utility: reads every
+    real <code>timeSliderBookmark</code> in the scene and creates a new AH clip
+    for any that don't already match an existing clip by name, best-effort
+    copying the bookmark's color too. It explicitly skips AnimHub's own
+    generated bookmarks (via
+    <code>bookmark_sync.is_ah_generated_bookmark()</code>) to avoid
+    re-importing AH's own shadow bookmarks as duplicate clips. This is
+    <strong>not</strong> an ongoing sync &mdash; re-running is safe
+    (already-matched names are skipped), but nothing here keeps bookmarks
+    and clips linked afterward.</p>
+    <p>Each newly created clip <strong>adopts the bookmark it was imported
+    from</strong> (<code>bookmark_sync.adopt_bookmark_for_clip()</code>) rather
+    than getting its own brand-new one. <code>CFClip.create()</code> (used
+    internally by <code>collection.add()</code>) always makes its own bookmark
+    unconditionally via <code>ensure_bookmark_for_clip()</code> &mdash; without
+    the adopt step, that left two identical-looking bookmarks (same
+    name/range) sitting side by side in Maya's own Bookmark Manager after
+    every import, a real reported bug. The redundant auto-created one is
+    deleted immediately after the real one is adopted.</p>
+
+    <h2 id="game-exporter-integration">Game Exporter integration</h2>
+    <p><strong>Tools &gt; Game Exporter &gt; Import Clips from GE / Push Clips to
+    GE</strong> (<code>game_exporter_sync.py</code>) &mdash; one-shot,
+    one-directional syncs with Maya's own built-in Game Exporter (Windows &gt;
+    Animation Editors &gt; Game Exporter), matching the same non-live
+    convention as the <a href="#one-shot-bookmark-import">bookmark import</a>
+    above.</p>
+    <div class="note">
+      Game Exporter has <strong>no <code>cmds.gameFbxExporter</code> command and
+      no Python module at all</strong> &mdash; confirmed directly against Maya's
+      own installed MEL source. Its clip list lives entirely as attributes on
+      a custom node type (<code>gameFbxExporter</code>, one node per preset
+      shown in its own preset dropdown), a multi-attribute array
+      <code>.animClips[i]</code> = <code>{animClipName, animClipStart, animClipEnd,
+      exportAnimClip, animClipSrcNode, animClipId}</code>. This is
+      read/written directly via plain <code>cmds.getAttr</code>/<code>setAttr</code>
+      &mdash; the same mechanism Maya's own Game Exporter UI code uses
+      internally. The node type's plugin (<code>gameFbxExporter.mll</code>)
+      isn't loaded by default &mdash; confirmed live it must be explicitly
+      loaded (<code>cmds.loadPlugin("gameFbxExporter")</code>) before the node
+      type is even recognized, the same requirement <code>bookmark_sync.py</code>
+      already has for <code>timeSliderBookmark</code>.
+    </div>
+    <p><strong>Import Clips from GE</strong> reads the first
+    <code>gameFbxExporter</code> node found in the scene and creates a new AH
+    clip for every entry whose name doesn't already match an existing clip
+    &mdash; same skip-on-collision convention as bookmark import. No node in the
+    scene yet means nothing to import (not an error).</p>
+    <p><strong>Push Clips to GE</strong> opens a small dialog
+    (<code>GameExporterPushDialog</code>) asking which clips to push &mdash;
+    <strong>All Clips</strong> (the default) or <strong>Checked Clips</strong>. Each
+    pushed clip is matched into the Game Exporter's list <strong>by name</strong>
+    &mdash; an existing entry's range is updated in place, a new one is
+    appended otherwise, so re-running is idempotent and never creates
+    duplicates. If no <code>gameFbxExporter</code> node exists yet, one is
+    created (named <code>CF_GameExporterPreset</code>, forced onto the Animation
+    tab) &mdash; an <em>existing</em> node's own export-type setting is left
+    alone. If the Game Exporter window happens to be open already, its own
+    clip list view is refreshed afterward.</p>
+
+    <h2 id="ai-companion-integration">
+      <img src="assets/img/icon-ai-companion.png" alt=""
+           style="width:24px;height:24px;border-radius:6px;border:1px solid var(--border);vertical-align:-6px;margin-right:4px;">
+      AI Companion integration
+    </h2>
+    <p><strong>Tools &gt; Ask AI</strong> opens the shared
+    <a href="app-ai-companion.html">AI Companion</a> panel and binds it with
+    two objects scoped entirely to AnimHub's own domain, plus a "concepts
+    primer" describing how to use them &mdash; full reference in
+    <a href="api-clips.html">ClipsAPI</a>. The AI never gets raw, unrestricted
+    access to the scene here: it can only act through these two curated,
+    tested surfaces, and even then only after a human reads the proposed
+    Python and clicks Run.</p>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="glyph">C</div>
+        <h4><code>clips</code> (<code>ClipsAPI</code>)</h4>
+        <p>AnimHub's own clips:
+        <code>clips.create()</code>/<code>clips.offset_all_keys_to_start_at_zero()</code>/etc.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">T</div>
+        <h4><code>time_editor</code> (<code>TimeEditorAPI</code>)</h4>
+        <p>Maya's own, separate Time Editor clips (<code>time_editor_sync.py</code>)
+        &mdash; a completely different feature that just shares a similar
+        name. <code>time_editor.list_clips()</code> and
+        <code>time_editor.resolve_overlaps()</code> (de-overlaps every Time
+        Editor clip, preserving each one's own duration) are the only two
+        methods exposed.</p>
+      </div>
+    </div>
+    <div class="note warn">
+      Added after a real request ("de-overlap my Time Editor clips") first
+      got refused outright, then got hallucinated
+      <code>cmds.timeEditorClip</code>/<code>timeEditorTracks</code> flags on
+      every freehand attempt. The primitive itself had a real bug in its
+      first version too: repositioning via edit-mode
+      <code>trimStart</code>/<code>trimEnd</code> reports the right boundary
+      numbers but silently corrupts the clip's actual playback (those flags
+      are relative to the clip's ORIGINAL creation anchor, not its current
+      position &mdash; moving it far enough samples past its real keyed
+      range into frozen hold/extrapolation instead of the real animation).
+      <code>_move_clip()</code> was rebuilt around
+      delete-and-recreate-from-the-same-anim-source instead, this time
+      verified by sampling actual driven attribute values before/after a
+      move, not just boundary numbers.
+    </div></p>
+
+    <footer class="doc-footer">
+      <span>&larr; <a href="index.html">Back to overview</a></span>
+      <span>Source: <code>docs/apps/cf_animhub.md</code></span>
+    </footer>
+  </main>
+</div>
+<footer class="site-footer">
+  Selected technical documentation for Core Flow Tools, an independent R&amp;D
+  project. &middot; <a href="../">&larr; Back to the case study</a>
+</footer>
+</body>
+</html>

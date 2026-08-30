@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Character Setup — Core Flow Tools Docs</title>
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/img/coreflow-logo.png" alt="">
+      <a href="index.html">Core Flow Tools<span class="tag">Technical Docs</span></a>
+    </div>
+    <div class="case-study-link">
+      <a href="../">&larr; Core Flow Tools Case Study</a>
+    </div>
+    <div class="nav-group">
+      <h6>Overview</h6>
+      <ul><li><a href="index.html">Home</a></li></ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
+      <ul>
+        <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-character-setup.html" class="active">Character Setup</a></li>
+        <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
+        <li><a href="app-utilities.html">Utilities</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
+      <ul>
+        <li><a href="app-ai-companion.html">AI Companion</a></li>
+        <li><a href="api-clips.html">ClipsAPI</a></li>
+        <li><a href="api-ai-providers.html">AI Provider Backend</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">3</span>Shared Foundation</h6>
+      <ul><li><a href="framework.html">Framework</a></li></ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="doc-header">
+      <div class="tier-pill applications">Tier 1 &middot; Applications</div>
+      <div class="kicker">Character</div>
+      <div class="title-row">
+        <img class="app-icon" src="assets/img/icon-character-setup.png" alt="">
+        <h1>Character Setup</h1>
+      </div>
+      <p class="sub" style="margin-top:14px"><code>dcc/maya/character/setup_tool/main_window.py</code> &mdash;
+      <code>CFCharacterSetupWindow</code>
+      (<code>WINDOW_OBJECT_NAME = "CF_CharacterSetupWindow"</code>), launched
+      from <strong>Character &gt; Character Setup</strong>. The authoring UI
+      for this project's own character-aware data model &mdash; a lightweight,
+      tagged data node that other applications (chiefly AnimHub and its
+      export pipeline) key off of.</p>
+      <div class="icon-note">Its Maya-menu/QuickLaunch icon sits next to its
+      launcher module &mdash; the in-app window doesn't set its own window
+      icon.</div>
+    </header>
+
+    <div class="design-goals">
+      <div class="dg-head">Design goals</div>
+      <div class="dg-row">
+        <div class="dg-num">1</div>
+        <div class="dg-label">Problem</div>
+        <p class="dg-body">Every downstream tool that needs to reason about
+        "which rig is this," "what's its export target," or "what's attached
+        to what" needs a shared, discoverable notion of a character - without
+        one, every application ends up inventing its own ad hoc way to find
+        and identify rigs, and none of them agree with each other.</p>
+      </div>
+      <div class="dg-row">
+        <div class="dg-num">2</div>
+        <div class="dg-label">Architectural decision</div>
+        <p class="dg-body">Represent a character as data on a native Maya
+        node - real typed attributes (enums, message connections, a
+        compound multi-attribute for sockets) applied generically from one
+        declarative schema table, not a custom node type and not a
+        hand-written <code>cmds.addAttr</code> call per field. A stable UUID,
+        not a node name, is the join key every other application uses to
+        reference a character, so a rename never breaks a downstream
+        reference.</p>
+      </div>
+      <div class="dg-row">
+        <div class="dg-num">3</div>
+        <div class="dg-label">Production benefit</div>
+        <p class="dg-body">Any application can discover every character in a
+        scene with one function call, resolve a stored reference back to a
+        live node even after a rename, and self-heal a partially-created or
+        corrupted node automatically on refresh - and a one-directional
+        import path adopts characters authored in a prior pipeline without
+        disturbing whatever that older tool still expects to find.</p>
+      </div>
+    </div>
+
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 700 230" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="Character node diagram: a Character node holds a stable UUID, connects to a control rig and export asset, holds a compound list of sockets, and is discovered by AnimHub and other applications by that UUID.">
+        <g font-family="'Segoe UI', sans-serif">
+          <rect x="270" y="14" width="160" height="50" rx="8" fill="#26292f" stroke="#7ad4ff"></rect>
+          <text x="350" y="35" text-anchor="middle" font-size="12.5" fill="#dcdcdc" font-weight="600">Character Node</text>
+          <text x="350" y="52" text-anchor="middle" font-size="10" fill="#8b8e96">stable UUID</text>
+
+          <rect x="40" y="110" width="150" height="46" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="115" y="138" text-anchor="middle" font-size="11.5" fill="#dcdcdc">Control Rig</text>
+          <rect x="210" y="110" width="150" height="46" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="285" y="138" text-anchor="middle" font-size="11.5" fill="#dcdcdc">Export Asset</text>
+          <rect x="380" y="110" width="150" height="46" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="455" y="138" text-anchor="middle" font-size="11.5" fill="#dcdcdc">Sockets (compound)</text>
+          <rect x="550" y="110" width="130" height="46" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="615" y="138" text-anchor="middle" font-size="11.5" fill="#dcdcdc">Attachments</text>
+
+          <rect x="230" y="196" width="240" height="24" rx="12" fill="#26292f" stroke="#9c85b0" stroke-opacity="0.6"></rect>
+          <text x="350" y="212" text-anchor="middle" font-size="11" fill="#c3aad8">AnimHub &amp; other applications, by UUID</text>
+
+          <line x1="320" y1="64" x2="115" y2="108" stroke="#5b8fa8" stroke-width="1.3"></line>
+          <line x1="340" y1="64" x2="285" y2="108" stroke="#5b8fa8" stroke-width="1.3"></line>
+          <line x1="365" y1="64" x2="455" y2="108" stroke="#5b8fa8" stroke-width="1.3"></line>
+          <line x1="385" y1="64" x2="615" y2="108" stroke="#5b8fa8" stroke-width="1.3"></line>
+          <line x1="350" y1="64" x2="350" y2="194" stroke="#7ad4ff" stroke-width="1.5" stroke-dasharray="3 3"></line>
+        </g>
+      </svg>
+    </div>
+    <p class="diagram-caption">Every relationship is a real Maya connection or
+    compound attribute on the node itself - not a side table or cache - so
+    two wrapper instances for the same node are always in sync.</p>
+
+    <h2 id="what-a-character-is">What a "Character" is</h2>
+    <p>A CFCharacter registers a rig as something other applications can
+    discover and reason about, and records the metadata the export pipeline
+    needs:</p>
+    <ul>
+      <li>A display <strong>name</strong> and a separate <strong>export name</strong>.</li>
+      <li>A <strong>type</strong> (<code>Character</code> / <code>Attachment</code> /
+        <code>Weapon</code> / <code>Prop</code> / <code>Custom</code>, free-text and
+        project-extensible &mdash; not a hard enum, so a project can type a
+        value beyond the default list).</li>
+      <li>A <strong>bake mode</strong> (<code>World</code> or <code>Origin</code>)
+        controlling what space the export pipeline bakes its animation in.</li>
+      <li>Connections to the rig's <strong>control rig</strong> node and
+        <strong>export asset</strong> (geometry root) &mdash; each a single
+        connection, not a list, based on real production experience that
+        more than one export root per character was never actually used.</li>
+      <li><strong>Attachment</strong> relationships to other characters (a prop or
+        weapon parented under a main character).</li>
+      <li><strong>Sockets</strong> &mdash; named attach points (a name plus a
+        connected joint), stored as real per-element Maya data rather than an
+        opaque blob, intended as the data layer under a future
+        paperdoll/perspective-view picker UI.</li>
+    </ul>
+    <p>It's a clean-room redesign of an earlier, unrelated
+    character-authoring tool, informed by years of that tool's own real
+    production use &mdash; not a port of its code. The two concrete design
+    changes: real Python enums instead of sentinel-string encoding, and a
+    declarative attribute table (<code>AttrSpec</code>, same pattern as
+    <code>animation/schema.py</code>) that gets walked generically instead of
+    hand-written <code>cmds.addAttr</code> calls per field.</p>
+
+    <h2 id="data-model">Data model</h2>
+    <h3>Storage</h3>
+    <p>A CFCharacter lives on a <strong>native Maya <code>character</code> set
+    node</strong> (<code>cmds.character(name=..., empty=True)</code>) &mdash; not a
+    custom node type, not a locator &mdash; carrying a set of <code>CF_Char*</code>
+    custom attributes. A node only "counts" as a CF character once it
+    carries <code>CF_CharUUID</code>; an ordinary artist-made <code>character</code>
+    set, or one built by an older tool, is ignored by
+    <code>list_all_characters()</code> until explicitly imported (see
+    <a href="#importing-from-a-legacy-setup">Legacy Data Migration</a>).</p>
+    <p><code>CFCharacter</code> itself (<code>model.py</code>) is a thin,
+    cache-free adapter: an instance holds only the node name, and every
+    property read/write goes straight to the live scene. Two
+    <code>CFCharacter</code> instances wrapping the same node are always in
+    sync with each other.</p>
+
+    <h3>Schema (<code>schema.py</code>)</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Attribute</th><th>Kind</th><th>Purpose</th></tr>
+      <tr><td><code>CF_CharName</code></td><td>string</td><td>Display name (<code>.name</code>). <code>rename()</code> keeps the Maya node name in sync, sanitized for legal node names &mdash; Maya may still uniquify further on a collision.</td></tr>
+      <tr><td><code>CF_CharExportName</code></td><td>string</td><td>Separate name used specifically at export time.</td></tr>
+      <tr><td><code>CF_CharUUID</code></td><td>string</td><td>Stable identifier &mdash; the join key other tools use (<code>find_by_uuid</code>), and the marker attribute that makes a node "a registered character" at all. Self-heals: regenerated if empty or colliding.</td></tr>
+      <tr><td><code>CF_CharType</code></td><td>string</td><td><code>Character</code> / <code>Attachment</code> / <code>Weapon</code> / <code>Prop</code> / <code>Custom</code> by default, but plain text. Setting this to <code>Attachment</code> automatically forces bake mode to <code>Origin</code>.</td></tr>
+      <tr><td><code>CF_CharBakeMode</code></td><td>enum</td><td><code>World</code> (default) or <code>Origin</code>.</td></tr>
+      <tr><td><code>CF_CharControlRig</code></td><td>message</td><td>Single connection to the control rig node.</td></tr>
+      <tr><td><code>CF_CharExportAsset</code></td><td>message</td><td>Single connection to the export/geometry root &mdash; deliberately one connection, not a fan-out list.</td></tr>
+      <tr><td><code>CF_CharAttachments</code></td><td>message</td><td>Builds the parent &rarr; child attachment chain between characters.</td></tr>
+      <tr><td><code>CF_CharacterMap</code></td><td>message</td><td>Schema slot only &mdash; <strong>no UI built on it yet</strong>, reserved for a feature not yet ported. <span class="tag gap">Gap</span></td></tr>
+      <tr><td><code>CF_CharSockets</code></td><td>compound, multi</td><td>One element per socket.</td></tr>
+      <tr><td><code>CF_CharSocketName</code> / <code>CF_CharSocketJoint</code></td><td>string / message</td><td>Socket's name and its joint connection &mdash; children of the sockets compound.</td></tr>
+    </table>
+    </div>
+
+    <h3>Lifecycle / self-healing</h3>
+    <ul>
+      <li><code>CFCharacter.create(name="Character")</code> &mdash; new node,
+        schema applied, fresh uuid assigned.</li>
+      <li><code>CFCharacter.wrap_existing(node)</code> &mdash; wraps and
+        schema-applies an existing node (used for both legitimate CF nodes
+        and legacy imports).</li>
+      <li><code>validate()</code> &mdash; re-applies any schema attributes missing
+        from the node (heals a node left partially-created by an earlier
+        interrupted apply, including partially-created compound children),
+        and regenerates the uuid if it's empty or colliding. Called on every
+        character during the window's own <code>_refresh_characters()</code>, so
+        a corrupted or duplicated uuid self-repairs the next time the tool
+        opens or refreshes, rather than needing a manual fix.</li>
+    </ul>
+
+    <h2 id="ui-walkthrough">UI walkthrough</h2>
+    <p><strong>Menu bar</strong> &mdash; File (Refresh, Close), Tools
+    (<strong>Import Legacy Setup...</strong>, the only entry point for legacy
+    import &mdash; see below), Help (reserved, currently empty).</p>
+    <p><strong>Characters panel (top)</strong></p>
+    <ul>
+      <li><strong>Add Character</strong> &mdash; creates a new character node.</li>
+      <li><strong>Delete</strong> &mdash; confirms, then deletes the node. Disabled
+        with nothing selected.</li>
+      <li><strong>Refresh</strong> &mdash; re-reads the character list from the
+        scene.</li>
+      <li><strong>Character combo box</strong> &mdash; every character in the
+        scene, by name (or node name if unnamed). Selecting one populates
+        the form and sockets table below. A refresh tries to keep the same
+        character selected (tracked by node, not index).</li>
+      <li><strong>Right-click</strong> on the combo: Set/Clear/Select-in-scene
+        for Control Rig and Export Asset, Attach To.../Detach, Delete.</li>
+    </ul>
+    <p><strong>Form fields</strong> (disabled with nothing selected; every field
+    persists immediately on edit, no Save step):</p>
+    <ul>
+      <li><strong>Name</strong> &mdash; live-edits <code>.name</code>; on losing focus
+        also renames the underlying node.</li>
+      <li><strong>Export Name</strong>, <strong>Type</strong> (editable combo,
+        pre-filled with the default type list but free-text),
+        <strong>Bake Mode</strong> (World/Origin).</li>
+      <li><strong>Control Rig</strong> / <strong>Export Asset</strong> &mdash; read-only
+        field + "Set" button (connects whatever's currently selected in the
+        scene; warns if nothing is selected).</li>
+    </ul>
+    <p><strong>Attach row</strong> &mdash; <strong>Attach To...</strong> (pick any other
+    character in the scene as parent; forces type to <code>Attachment</code>) /
+    <strong>Detach</strong>.</p>
+    <p><strong>Sockets panel</strong> (bottom, labeled "SOCKETS &mdash; &lt;character
+    name&gt;")</p>
+    <ul>
+      <li><strong>Add Socket</strong> (prompts for a name) / <strong>Remove
+        Socket</strong>.</li>
+      <li>Table: Socket Name (directly editable inline) and Joint (read-only
+        field + "Set" button, same connect-from-selection pattern as Control
+        Rig/Export Asset).</li>
+      <li>Right-click a row: Set Joint from Selection, Clear Joint, Select
+        Joint in Scene, Rename Socket, Remove Socket.</li>
+      <li>Socket rows are addressed by the compound attribute's actual Maya
+        element index, not row position &mdash; removing a socket can leave
+        gaps, so any code holding onto "socket 2" needs to track that index,
+        not a list offset.</li>
+    </ul>
+
+    <h2 id="public-api">Public API other tools use</h2>
+    <p><code>character/model.py</code> is the shared data-access layer,
+    typically imported as
+    <code>from CoreTools.dcc.maya.character import model as character_model</code>.</p>
+    <ul>
+      <li><strong><code>list_all_characters()</code></strong> &mdash; every
+        <code>CFCharacter</code> in the scene. The core discovery entry point.
+        Used by AnimHub's main window (the "Add/Remove Character to
+        Checked Clips" picker, the character hierarchy view),
+        <code>clip_row_widget.py</code> (resolving a clip's export-slot uuids to
+        display names), and <code>character_export_row.py</code>.</li>
+      <li><strong><code>find_by_uuid(target_uuid)</code></strong> &mdash; resolves a
+        stored uuid back to its <code>CFCharacter</code>, or <code>None</code>. Used
+        by <code>export_pipeline.export_clip()</code> to resolve a clip's
+        export-character slot; a missing character records as an export
+        failure ("Character not found in scene") rather than raising.</li>
+      <li><strong><code>character_hierarchy()</code></strong> &mdash; returns
+        <code>(roots, children)</code> for building a parent/child character tree
+        view.</li>
+      <li><strong><code>CFCharacter</code></strong> itself &mdash; <code>.name</code>,
+        <code>.export_name</code>, <code>.uuid</code>, <code>.char_type</code>,
+        <code>.bake_mode</code>, <code>.control_rig</code>, <code>.export_asset</code>,
+        <code>.parent_character</code>, <code>.attachments</code>, plus the
+        create/delete/rename/validate/attach/socket methods above.</li>
+    </ul>
+
+    <h2 id="importing-from-a-legacy-setup">Legacy Data Migration</h2>
+    <p><strong>Tools &gt; Import Legacy Setup...</strong> lists every
+    character-like node in the scene that predates this project's own schema
+    and lets you adopt one into it &mdash; carrying over its existing name,
+    export name, type, bake mode, control rig, first export asset, and
+    attachment relationships (mapped onto this project's own socket model)
+    &mdash; without touching or removing any of the original tool's own data,
+    so a migrated node keeps working with both toolsets side by side. This
+    lives only in the Tools menu (not duplicated as a toolbar button), by
+    design: a rarely-used, one-directional migration action gets one
+    authoritative entry point, not several.</p>
+    <p>The real engineering challenge wasn't the copy itself &mdash; it was
+    reverse-engineering how the legacy system actually represented its data
+    before any of it could be translated, since none of that structure was
+    documented anywhere. Three problem classes came up repeatedly: relationships
+    stored in the <em>opposite</em> connection direction from this project's
+    own convention (detected and corrected automatically rather than assumed
+    fixed, since a naive one-direction importer would have silently imported
+    nothing); relationships that weren't simple attributes at all but lived
+    in a more indirect, multi-hop structure elsewhere in the rig, which had
+    to be walked and reconstructed into a proper socket-based attachment
+    here rather than copied as-is; and value sets that looked compatible but
+    were confirmed field-by-field rather than assumed, since a silent
+    mismatch there fails quietly instead of loudly. Where the legacy schema
+    allowed something this one doesn't &mdash; multiple export assets on one
+    character &mdash; the import takes the first and documents the limit as a
+    deliberate scope decision, not silent data loss.</p>
+
+    <h2 id="design-notes-worth-knowing">Design notes worth knowing</h2>
+    <ul>
+      <li>Every property read/write is a live Maya query &mdash; nothing is
+        cached, so two wrapper instances for the same node are always
+        consistent, but every UI refresh is a fresh round-trip through
+        <code>cmds</code>, not a diffed/cached read.</li>
+      <li><code>export_asset</code> is single-valued by deliberate scope
+        reduction versus the legacy tool's fan-out list.</li>
+      <li><code>character_map</code> (<code>CF_CharacterMap</code>) is a schema slot
+        with no UI or behavior built on it yet &mdash; flagged as an unported
+        legacy feature to revisit later, not a bug.</li>
+      <li>A UI-picker-related attribute from the legacy schema was
+        intentionally dropped as unneeded here.</li>
+    </ul>
+
+    <footer class="doc-footer">
+      <span>&larr; <a href="index.html">Back to overview</a></span>
+      <span>Source: <code>docs/apps/character_setup_tool.md</code></span>
+    </footer>
+  </main>
+</div>
+<footer class="site-footer">
+  Selected technical documentation for Core Flow Tools, an independent R&amp;D
+  project. &middot; <a href="../">&larr; Back to the case study</a>
+</footer>
+</body>
+</html>

@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Companion — Core Flow Tools Docs</title>
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/img/coreflow-logo.png" alt="">
+      <a href="index.html">Core Flow Tools<span class="tag">Technical Docs</span></a>
+    </div>
+    <div class="case-study-link">
+      <a href="../">&larr; Core Flow Tools Case Study</a>
+    </div>
+    <div class="nav-group">
+      <h6>Overview</h6>
+      <ul><li><a href="index.html">Home</a></li></ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
+      <ul>
+        <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-character-setup.html">Character Setup</a></li>
+        <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
+        <li><a href="app-utilities.html">Utilities</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
+      <ul>
+        <li><a href="app-ai-companion.html" class="active">AI Companion</a></li>
+        <li><a href="api-clips.html">ClipsAPI</a></li>
+        <li><a href="api-ai-providers.html">AI Provider Backend</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">3</span>Shared Foundation</h6>
+      <ul><li><a href="framework.html">Framework</a></li></ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="doc-header">
+      <div class="tier-pill ai-core">Tier 2 &middot; AI Core</div>
+      <div class="kicker">Shared Capability</div>
+      <div class="title-row">
+        <img class="app-icon" src="assets/img/icon-ai-companion.png" alt="">
+        <h1>AI Companion</h1>
+      </div>
+      <p class="sub" style="margin-top:14px"><code>dcc/maya/ai_panel.py</code> &mdash; a dockable
+      natural-language-to-reviewable-Python-script panel (<code>AIPanel</code>,
+      <code>WINDOW_OBJECT_NAME = "CF_AICompanionWindow"</code>) any application
+      can plug into. Launch it standalone from <strong>Utilities &gt; AI
+      Companion</strong>, or have another application open and bind it to its
+      own curated API (see <a href="#embedding">Embedding in another
+      app</a> &mdash; AnimHub's <code>ClipsAPI</code> integration, documented
+      fully in <a href="api-clips.html">ClipsAPI</a>, is the worked example).
+      This is a <strong>shared capability</strong>, not a separate autonomous
+      agent - one panel, reused by every application that wants it, each one
+      scoping it down to its own domain.</p>
+      <div class="icon-note">Its Maya-menu/QuickLaunch icon sits next to its
+      launcher module, separate from its in-app window/button icon (also used
+      by AnimHub's own "Ask AI" corner toolbar button).</div>
+    </header>
+
+    <div class="design-goals">
+      <div class="dg-head">Design goals</div>
+      <div class="dg-row">
+        <div class="dg-num">1</div>
+        <div class="dg-label">Problem</div>
+        <p class="dg-body">A general-purpose coding assistant with
+        unrestricted access to a live production scene is a genuine risk -
+        it can hallucinate a plausible-looking but wrong API, misuse a
+        real Maya command in a way that silently corrupts data, or simply
+        guess at functionality that doesn't exist. At the same time, forcing
+        every request through hand-written code defeats the entire point of
+        having an assistant.</p>
+      </div>
+      <div class="dg-row">
+        <div class="dg-num">2</div>
+        <div class="dg-label">Architectural decision</div>
+        <p class="dg-body">Split the problem in two. First, a hard process
+        boundary: the model only ever <em>proposes</em> Python - a human
+        reads it and clicks Run before anything executes, wrapped in one
+        undo step. Second, a narrower, complementary boundary: each
+        embedding application hands the model a small, tested, curated API
+        scoped to its own domain (plus a short primer on how to use it)
+        instead of raw <code>cmds</code> - so the common, expected actions go
+        through a verified path, and the specific correctness traps a model
+        can fall into by improvising are closed off before they happen.</p>
+      </div>
+      <div class="dg-row">
+        <div class="dg-num">3</div>
+        <div class="dg-label">Production benefit</div>
+        <p class="dg-body">Every application gets natural-language assistance
+        for free, without writing a single line of AI integration code
+        beyond its own curated API - and every time a new failure mode is
+        found in real use, the fix extends the tested surface rather than
+        hoping different prompt wording holds up next time. See
+        <a href="api-clips.html#the-concepts-primer">ClipsAPI's documented
+        history</a> for concrete examples of exactly that pattern in
+        practice.</p>
+      </div>
+    </div>
+
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 700 190" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="Safety flow: a request goes to the model, which proposes Python against a curated API; a human reviews the proposal; only on Run does anything execute, through the curated API and never raw unrestricted Maya commands.">
+        <defs>
+          <marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#5b8fa8"></path>
+          </marker>
+        </defs>
+        <g font-family="'Segoe UI', sans-serif" font-size="12" fill="#dcdcdc">
+          <rect x="10" y="70" width="130" height="50" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="75" y="99" text-anchor="middle">Your request</text>
+
+          <rect x="185" y="70" width="150" height="50" rx="8" fill="#26292f" stroke="#3a3d44"></rect>
+          <text x="260" y="93" text-anchor="middle">Model proposes</text>
+          <text x="260" y="108" text-anchor="middle" font-size="10" fill="#8b8e96">Python only - nothing runs</text>
+
+          <rect x="380" y="70" width="140" height="50" rx="8" fill="#26292f" stroke="#7ad4ff"></rect>
+          <text x="450" y="93" text-anchor="middle">You review</text>
+          <text x="450" y="108" text-anchor="middle" font-size="10" fill="#8b8e96">and click Run</text>
+
+          <rect x="565" y="70" width="130" height="50" rx="8" fill="#26292f" stroke="#9c85b0" stroke-opacity="0.6"></rect>
+          <text x="630" y="93" text-anchor="middle">Curated API</text>
+          <text x="630" y="108" text-anchor="middle" font-size="10" fill="#8b8e96">never raw cmds</text>
+
+          <line x1="140" y1="95" x2="183" y2="95" stroke="#5b8fa8" stroke-width="1.5" marker-end="url(#arrow2)"></line>
+          <line x1="335" y1="95" x2="378" y2="95" stroke="#5b8fa8" stroke-width="1.5" marker-end="url(#arrow2)"></line>
+          <line x1="520" y1="95" x2="563" y2="95" stroke="#5b8fa8" stroke-width="1.5" marker-end="url(#arrow2)"></line>
+        </g>
+      </svg>
+    </div>
+    <p class="diagram-caption">The human review step before Run is the entire
+    safety mechanism - not a sandbox. The curated API is a separate,
+    complementary layer that keeps common actions on a tested path.</p>
+
+    <h2 id="the-safety-model">The safety model</h2>
+    <p>The model never touches the Maya scene directly:</p>
+    <ol>
+      <li>You type a request.</li>
+      <li>The model returns <strong>text only</strong> &mdash; an explanation plus a
+        proposed Python script.</li>
+      <li>You read the script.</li>
+      <li>Clicking <strong>Run</strong> executes it, wrapped in a single Maya undo
+        chunk (so one Ctrl+Z reverts everything it did).</li>
+    </ol>
+    <p>That review step is the entire safety mechanism &mdash; there's no
+    sandboxing or restricted <code>cmds</code> allow-list underneath it. See
+    <a href="api-clips.html#safety-model">ClipsAPI's Safety model</a> section
+    for the full mechanics (<code>core/ai/execute.py</code>'s
+    <code>run_generated_code</code>) and why a curated API object matters even
+    though it isn't a hard sandbox boundary.</p>
+
+    <h2 id="ui-layout">UI layout</h2>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="glyph">&#9776;</div>
+        <h4>Header</h4>
+        <p>Provider/model status (a small dot + text, same
+        "connected/offline" language as the P4 status bar), and, when the
+        panel has been bound by an embedding app, a green
+        "&middot; AnimHub connected"-style indicator. This exists specifically
+        so you can tell at a glance whether <em>this particular panel
+        instance</em> actually has the curated API bound. Split across two
+        rows rather than one wide row, specifically so the panel can dock
+        narrow without cropping.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">&#128172;</div>
+        <h4>Conversation log</h4>
+        <p>A scrolling transcript (You / AI / System messages), with a faint
+        centered watermark that fades once a real conversation starts.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">&#128196;</div>
+        <h4>Proposed Script card</h4>
+        <p>Appears once the model responds with code; read-only code view
+        plus <strong>Run (undoable)</strong> and <strong>Discard</strong> buttons.
+        Hidden entirely when there's no pending proposal.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">&#8629;</div>
+        <h4>Input row</h4>
+        <p>A multi-line text box (plain Enter sends, Shift/Ctrl+Enter
+        inserts a newline) plus Send and a Settings gear (opens Settings
+        straight to the AI page).</p>
+      </div>
+    </div>
+    <p class="dim">The window can be resized down to 280px wide / 580px tall
+    without cropping &mdash; deliberately narrow-dockable, since a Maya dock
+    column is often much narrower than a comfortable floating-window
+    default.</p>
+
+    <h2 id="script-history">Script History</h2>
+    <p>Opened via the <strong>Script History</strong> button in the header.
+    Records <strong>every script actually executed</strong> (Run clicked, or
+    Re-run from this dialog) &mdash; not scripts that were only proposed and
+    then Discarded, and not just successful ones either, since a failed
+    attempt is often exactly what's worth studying later.</p>
+    <p><strong>Persistent across Maya sessions</strong>, not session-scoped
+    &mdash; reverted from an earlier in-memory-only design once it became clear
+    that losing everything the moment the panel closed made it useless as a
+    "what did I actually run last week" reference. Backed by
+    <code>core/ai/script_history_store.py</code>: a plain append-only JSON
+    Lines file in a local per-user data directory (the same convention the
+    application log file uses). JSON Lines specifically because it needs
+    only an O(1) file append for a
+    new entry (no read-modify-write of a whole array), and a single
+    malformed/truncated trailing line (e.g. Maya closing mid-write) doesn't
+    lose every entry before it.</p>
+    <p>Each entry: timestamp, the original request text, the model's
+    explanation, the code, whether it succeeded, and the failure message if
+    not.</p>
+    <p><strong>Per-entry actions:</strong></p>
+    <ul>
+      <li><strong>Copy Code</strong> / <strong>Re-run</strong> (re-executes through the
+        same <code>run_generated_code</code> path, recording a new history
+        entry).</li>
+      <li>Right-click <strong>Copy Prompt</strong> &mdash; copies just the
+        <em>original request text</em> for that entry (distinct from Copy
+        Code), handy for re-asking a variant of an old prompt.</li>
+      <li>The list supports multi-select (Ctrl/Shift-click); right-click
+        with more than one row selected shows <strong>Delete Selected
+        (N)</strong> instead of Copy Prompt, removing the selected entries from
+        both the in-memory list and the on-disk store (a full rewrite of the
+        JSONL file, the only operation the store supports besides append).</li>
+      <li>A <strong>search box</strong> above the list filters by request text,
+        explanation, or code as you type, preserving the current selection
+        across both typing and a live refresh (e.g. a new entry landing
+        mid-search from a Re-run) rather than resetting the filter.</li>
+    </ul>
+
+    <h2 id="embedding">Embedding in another app</h2>
+    <p><code>AIPanel.__init__</code> accepts three optional hooks, and
+    <code>set_context()</code> lets an embedding app <strong>rebind</strong> them
+    after construction &mdash; necessary because <code>show_dockable()</code>
+    reuses an already-open panel instead of reconstructing it, so a
+    constructor-only kwarg would only ever take effect on the very first
+    launch:</p>
+    <pre><code>def _on_ask_ai(self):
+    window = ai_panel.show()
+    if window is None:
+        window = dcc_ui.find_dockable_instance(ai_panel.AIPanel)
+    if window is not None:
+        window.set_context(
+            context_provider=self._ai_context_summary,
+            extra_namespace_provider=lambda: {"clips": ClipsAPI(self.clips)},
+            on_run_complete=self._rebuild_rows)</code></pre>
+    <ul>
+      <li><strong><code>context_provider</code></strong> &mdash; a zero-arg callable
+        returning a plain-text "concepts primer" sent alongside every
+        request. This is where you document your curated API's real method
+        names, correct usage, and any disambiguation the model needs &mdash; see
+        <a href="api-clips.html#the-concepts-primer">ClipsAPI's concepts
+        primer</a> section for three real bugs this mechanism exists to
+        prevent.</li>
+      <li><strong><code>extra_namespace_provider</code></strong> &mdash; a zero-arg
+        callable returning a dict merged into the exec namespace on top of
+        <code>cmds</code> when running generated code. This is the actual
+        capability boundary (see <a href="#the-safety-model">The safety
+        model</a>) &mdash; whatever you put here is what the AI can call.</li>
+      <li><strong><code>on_run_complete</code></strong> &mdash; a zero-arg callable
+        invoked after a <strong>successful</strong> run, so the embedding app can
+        refresh its own UI state.</li>
+    </ul>
+    <div class="note warn">
+      AI-run code mutates the embedding app's live data model directly (the
+      same object its own UI reads from), but nothing else tells that UI to
+      redraw &mdash; a real reported bug was <code>clips.create(...)</code>
+      genuinely succeeding (confirmed by re-querying <code>clips.list()</code>)
+      while the newly created clip never appeared in AnimHub's row list,
+      because <code>on_run_complete</code> had been accepted by the constructor
+      but never actually wired through <code>set_context()</code> until this was
+      fixed. If you embed the panel, always pass this, even if your data
+      model looks like it "just updates automatically" &mdash; it doesn't,
+      unless something explicitly asks the UI to rebuild.
+    </div>
+    <p>All three default to <code>None</code> and are safe to omit &mdash; a plain,
+    unbound <code>AIPanel</code> runs in "Full Scene" mode: just <code>cmds</code>,
+    no context primer, no completion hook.</p>
+
+    <h2 id="provider--api-key-setup">Provider / API key setup</h2>
+    <p><a href="framework.html#settings-dialog--registry">Settings &gt;
+    AI</a> (or the gear icon in the panel header) configures the
+    provider (Anthropic / OpenAI / Gemini), model, and API key. Keys are
+    stored in the OS keychain via <code>core/ai/key_storage.py</code>, never in
+    a config file. If no key is set when you send a request, the panel
+    prompts for one inline; <code>keyring</code> must be installed in Maya's
+    Python for this to work at all (<code>mayapy -m pip install keyring</code>
+    if the panel reports it's missing).</p>
+
+    <footer class="doc-footer">
+      <span>&larr; <a href="index.html">Back to overview</a></span>
+      <span>Source: <code>docs/apps/ai_companion.md</code></span>
+    </footer>
+  </main>
+</div>
+<footer class="site-footer">
+  Selected technical documentation for Core Flow Tools, an independent R&amp;D
+  project. &middot; <a href="../">&larr; Back to the case study</a>
+</footer>
+</body>
+</html>

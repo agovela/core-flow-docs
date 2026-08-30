@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ClipsAPI Reference — Core Flow Tools Docs</title>
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/img/coreflow-logo.png" alt="">
+      <a href="index.html">Core Flow Tools<span class="tag">Technical Docs</span></a>
+    </div>
+    <div class="case-study-link">
+      <a href="../">&larr; Core Flow Tools Case Study</a>
+    </div>
+    <div class="nav-group">
+      <h6>Overview</h6>
+      <ul><li><a href="index.html">Home</a></li></ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
+      <ul>
+        <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-character-setup.html">Character Setup</a></li>
+        <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
+        <li><a href="app-utilities.html">Utilities</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
+      <ul>
+        <li><a href="app-ai-companion.html">AI Companion</a></li>
+        <li><a href="api-clips.html" class="active">ClipsAPI</a></li>
+        <li><a href="api-ai-providers.html">AI Provider Backend</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">3</span>Shared Foundation</h6>
+      <ul><li><a href="framework.html">Framework</a></li></ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="doc-header">
+      <div class="tier-pill ai-core">Tier 2 &middot; AI Core</div>
+      <div class="kicker">API Reference</div>
+      <h1><code>ClipsAPI</code> reference</h1>
+      <p class="sub"><code>dcc/maya/animation/clips_api.py</code> &mdash; the
+      curated Python surface AnimHub hands to the AI Companion. This is
+      the actual capability boundary for AI-generated code touching clips:
+      the AI's generated script runs with an instance of <code>ClipsAPI</code>
+      in its exec namespace, never raw <code>cmds</code>. The boundary is
+      enforced by what's literally put in that namespace (see
+      <a href="#safety-model">Safety model</a> below), never by asking the
+      model to behave itself.</p>
+      <p class="sub" style="margin-top:10px">If you're extending what the AI
+      Companion can do to a clip, this file is where that happens &mdash; add a
+      method here, document it in the
+      <a href="#the-concepts-primer">"concepts primer" section</a> below (and
+      in <code>main_window.py</code>'s <code>_ai_context_summary()</code>), and it
+      becomes something the model can call on the very next request.</p>
+    </header>
+
+    <h2 id="construction">Construction</h2>
+    <pre><code>from CoreTools.dcc.maya.animation.clips_api import ClipsAPI
+api = ClipsAPI(collection)   # collection: a model.ClipCollection instance</code></pre>
+    <p>AnimHub binds a fresh one on every "Ask AI" click:</p>
+    <pre><code>window.set_context(
+    context_provider=self._ai_context_summary,
+    extra_namespace_provider=lambda: {"clips": ClipsAPI(self.clips)},
+    on_run_complete=self._rebuild_rows)</code></pre>
+    <p>Note it's a <strong>lambda</strong>, re-evaluated on every request &mdash; not a
+    one-time-constructed instance. That matters: <code>self.clips</code> (the
+    window's live <code>ClipCollection</code>) is looked up fresh each time the
+    AI panel needs a namespace, so it always wraps whatever the <em>current</em>
+    collection is, even across a scene change that replaced it.</p>
+
+    <h2 id="method-reference">Method reference</h2>
+    <p>Every method below either finds a clip by <strong>name</strong> (raising
+    <code>ValueError</code> if it doesn't exist) or operates on the whole
+    collection. There is no method that takes a raw Maya node name &mdash; clips
+    are always addressed by their logical <code>CF_ClipName</code>, matching how
+    a human refers to them.</p>
+
+    <h3>Reading</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Method</th><th>Returns</th><th>Notes</th></tr>
+      <tr><td><code>list()</code></td><td><code>[{name, start, end, status, checked, groups, color, enable_layers, disable_layers, override_path, loop, export_curve_data, export_curve_data_head}, ...]</code></td><td>One dict per existing clip. <code>status</code> is the string name (<code>"READY"</code> / <code>"IN_PROGRESS"</code> / <code>"IGNORE"</code>), not the enum object.</td></tr>
+      <tr><td><code>checked()</code></td><td><code>[name, ...]</code></td><td><strong>Raw checkbox state only</strong> &mdash; does NOT exclude <code>IGNORE</code>-status clips. <code>ClipCollection.checked()</code> (used by the export pipeline) is the checked-<em>and</em>-exportable subset; this is intentionally the broader one.</td></tr>
+      <tr><td><code>in_group(group_name)</code></td><td><code>[name, ...]</code></td><td><code>group_name == "All"</code> returns every clip name, matching the UI's own "All" pseudo-group.</td></tr>
+      <tr><td><code>list_groups()</code></td><td><code>[group_name, ...]</code></td><td>Only <em>registered</em> groups (see <code>create_group</code> below) &mdash; not every string that happens to appear in some clip's group membership.</td></tr>
+      <tr><td><code>list_anim_layers()</code></td><td><code>[layer_name, ...]</code></td><td>Every animLayer in the scene, root layer first.</td></tr>
+    </table>
+    </div>
+
+    <h3>Creating / removing</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Method</th><th>Signature</th><th>Notes</th></tr>
+      <tr><td><code>create</code></td><td><code>create(name=None, start=None, end=None) -&gt; name</code></td><td><strong>THE</strong> way to make a new AH clip. <code>name</code> defaults to the next sequential <code>"Clip001"</code>-style name; <code>start</code>/<code>end</code> default to <code>0</code>/<code>1</code>. There is no <code>add()</code> method &mdash; that name was hallucinated by the model once in practice.</td></tr>
+      <tr><td><code>duplicate</code></td><td><code>duplicate(name, new_name=None) -&gt; name</code></td><td>Copies a clip and its full field set. Calls <code>collection.refresh()</code> internally, so the returned name is guaranteed live-queryable immediately after.</td></tr>
+      <tr><td><code>delete</code></td><td><code>delete(name) -&gt; None</code></td><td>Removes the clip (and its underlying Maya node) entirely.</td></tr>
+    </table>
+    </div>
+
+    <h3>Editing fields</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Method</th><th>Signature</th><th>Notes</th></tr>
+      <tr><td><code>rename</code></td><td><code>rename(name, new_name)</code></td><td></td></tr>
+      <tr><td><code>set_range</code></td><td><code>set_range(name, start, end)</code></td><td></td></tr>
+      <tr><td><code>set_status</code></td><td><code>set_status(name, status)</code></td><td><code>status</code> is case-insensitive, spaces-or-underscores (<code>"ignore"</code>, <code>"IGNORE"</code>, <code>"Ignore"</code>, <code>"in progress"</code>, <code>"IN_PROGRESS"</code> all work). Raises <code>ValueError</code> listing valid names on a bad value.</td></tr>
+      <tr><td><code>set_checked</code></td><td><code>set_checked(name, checked)</code></td><td></td></tr>
+      <tr><td><code>set_color</code></td><td><code>set_color(name, r, g, b)</code></td><td></td></tr>
+      <tr><td><code>set_enable_layers</code> / <code>set_disable_layers</code></td><td><code>set_enable_layers(name, layers)</code></td><td><strong>Replace</strong> semantics, not additive &mdash; passing <code>[]</code> clears the list, it doesn't no-op.</td></tr>
+      <tr><td><code>set_override_path</code></td><td><code>set_override_path(name, path)</code></td><td><code>path=None</code>/<code>""</code> clears the override, falling back to the export pipeline's own path-resolution order.</td></tr>
+      <tr><td><code>set_loop</code></td><td><code>set_loop(name, value)</code></td><td></td></tr>
+      <tr><td><code>set_export_curve_data</code> / <code>set_export_curve_data_head</code></td><td><code>set_export_curve_data(name, value)</code></td><td>Schema/UI fields; not currently acted on by the export pipeline.</td></tr>
+    </table>
+    </div>
+
+    <h3>Groups</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Method</th><th>Signature</th><th>Notes</th></tr>
+      <tr><td><code>add_to_group</code></td><td><code>add_to_group(name, group_name)</code></td><td>Tags a clip with a group name. <strong>Does NOT by itself make the group appear anywhere</strong> in the UI (no tab, not orderable) &mdash; see below.</td></tr>
+      <tr><td><code>remove_from_group</code></td><td><code>remove_from_group(name, group_name)</code></td><td></td></tr>
+      <tr><td><code>create_group</code></td><td><code>create_group(group_name) -&gt; group_name</code></td><td><strong>Registers</strong> the group so it becomes real &mdash; orderable, eventually a UI tab. Tagging every clip in the scene with <code>"Combat"</code> via <code>add_to_group</code> alone would never make a "Combat" tab appear until <code>create_group("Combat")</code> also runs.</td></tr>
+    </table>
+    </div>
+
+    <h3>Anim layers</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Method</th><th>Signature</th><th>Notes</th></tr>
+      <tr><td><code>list_anim_layers</code></td><td>see above</td><td></td></tr>
+      <tr><td><code>set_enable_layers</code> / <code>set_disable_layers</code></td><td>see above</td><td>Applied at export time via <code>layer_manager.apply_clip_layers()</code> &mdash; see <a href="app-animhub.html">AnimHub</a>.</td></tr>
+    </table>
+    </div>
+
+    <h3>Preview</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Method</th><th>Signature</th><th>Notes</th></tr>
+      <tr><td><code>capture_preview</code></td><td><code>capture_preview(name) -&gt; path | None</code></td><td>Playblasts a small hover-preview thumbnail sequence. Returns <code>None</code> if the scene has never been saved &mdash; a preview lives next to the scene file, so this is the most common failure.</td></tr>
+    </table>
+    </div>
+
+    <h3>Retiming</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Method</th><th>Signature</th><th>Notes</th></tr>
+      <tr><td><code>offset_all_keys_to_start_at_zero</code></td><td><code>offset_all_keys_to_start_at_zero(objects=None) -&gt; (0, new_end) | None</code></td><td>Shifts every keyframe on <code>objects</code> (or every animated object in the scene if omitted) so the earliest key lands at frame 0, in one safe pass over the underlying animCurve nodes. <strong>THE way to retime a scene to start at zero</strong> &mdash; see <a href="#why-this-exists">why this exists instead of letting the AI write it</a>. Returns <code>None</code> if there's nothing keyed.</td></tr>
+      <tr><td><code>offset_keys_after</code></td><td><code>offset_keys_after(threshold_frame, offset, objects=None) -&gt; {"moved": int, "failed": [...]}</code></td><td>Shifts every keyframe at/after <code>threshold_frame</code> by <code>offset</code> frames, leaving anything earlier untouched &mdash; e.g. to make room for a newly-inserted clip mid-timeline. <strong>THE way to do a partial/range keyframe shift</strong> &mdash; a hand-written per-key <code>cmds.keyframe</code> loop, even a seemingly collision-safe descending-order one, can still hit Maya's own <code>RuntimeError: Cannot move keys</code>; this does one native bulk range-move per curve instead. <code>failed</code> can be non-empty even on an otherwise successful call &mdash; confirmed live Maya's own guard can still refuse a <em>specific</em> curve on a real production rig (an animLayer-blended curve is the leading suspect); each curve moves independently, so one refusal doesn't abort the rest.</td></tr>
+    </table>
+    </div>
+
+    <h3>Explicitly absent</h3>
+    <ul>
+      <li><strong><code>export()</code></strong> <span class="tag absent">Absent</span>
+        &mdash; matches the deliberate scope decision that export stays a
+        manual, human-triggered action (the Export FBX button). No method
+        here can trigger a batch export, and the AI primer says so
+        explicitly so the model doesn't go looking for one.</li>
+      <li><strong><code>add()</code></strong> <span class="tag absent">Absent</span> &mdash;
+        see <code>create()</code> above.</li>
+      <li>Anything that touches raw <code>cmds</code> or scene geometry directly
+        &mdash; if a request needs that, the model is expected to say it can't be
+        done through <code>clips</code>, not fall back to writing raw
+        <code>cmds</code> calls that bypass this layer entirely.</li>
+    </ul>
+
+    <h2 id="safety-model">Safety model</h2>
+    <p>The AI never touches the Maya scene directly. The flow, end to end:</p>
+    <ol>
+      <li>The user types a request in the AI Companion.</li>
+      <li>The model returns <strong>text only</strong> &mdash; an explanation plus a
+        proposed Python script. Nothing has run yet.</li>
+      <li>The user reads the proposed script and clicks <strong>Run</strong>.</li>
+      <li><code>core/ai/execute.py</code>'s
+        <code>run_generated_code(code, extra_namespace=None)</code> executes it,
+        wrapped in a single Maya undo chunk (<code>cmds.undoInfo</code>), in a
+        namespace of <code>{"cmds": cmds}</code> merged with whatever
+        <code>extra_namespace</code> was supplied &mdash; for AnimHub, that's
+        <code>{"clips": ClipsAPI(self.clips)}</code>.</li>
+    </ol>
+    <div class="note warn">
+      That review step &mdash; a human reading the code before it runs &mdash; <strong>is
+      the entire safety mechanism.</strong> There's no sandboxing, no
+      restricted <code>cmds</code> allow-list, no static analysis of the
+      proposed script. The <code>ClipsAPI</code> boundary exists so that the
+      <em>common, expected</em> actions go through a curated, tested path
+      instead of the model improvising raw node/attribute edits &mdash; but a
+      sufficiently instructed model can still call <code>cmds</code> directly
+      inside a proposed script, and a human still has to actually read
+      before clicking Run for the safety model to hold.
+    </div>
+    <p>A failed run doesn't raise into the caller &mdash;
+    <code>run_generated_code</code> returns <code>(False, traceback_string)</code>,
+    and the whole run (success or failure) is recorded in AI Companion's
+    persistent Script History (see <a href="app-ai-companion.html">AI
+    Companion</a>), so a failed attempt is still there to study, not just
+    successful ones.</p>
+
+    <h2 id="the-concepts-primer">The concepts primer</h2>
+    <p><code>main_window.py</code>'s <code>_ai_context_summary()</code> is sent as a
+    "concepts primer" alongside every request &mdash; plain text describing what
+    <code>clips</code> is and how to use it. This exists because leaving the
+    model to <em>infer</em> the right method from a vague description
+    reliably produces hallucinated methods and wrong assumptions. Five
+    real, reported failures shaped what the current primer says, in order:</p>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="glyph">1</div>
+        <h4>Fabricated a raw node instead of calling <code>create()</code></h4>
+        <p>Asked to create a clip, the model fabricated a raw
+        <code>cmds.createNode("network", ...)</code> with hand-added
+        <code>clipName</code>/<code>startFrame</code>/<code>endFrame</code> attributes as a
+        stand-in &mdash; invisible to AnimHub, not a real clip. Fix: the primer
+        now lists every real method signature explicitly, and says outright
+        never to invent a raw-node representation of a clip.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">2</div>
+        <h4>Hand-wrote a retiming loop that doubled the offset</h4>
+        <p>Asked to retime a scene, the model hand-wrote a keyframe-shift
+        loop that shifted every curve twice &mdash; once via each object's own
+        transform, once via the underlying animCurve nodes directly &mdash;
+        silently doubling the offset. Fix:
+        <code>offset_all_keys_to_start_at_zero()</code> was added specifically
+        so the model has a tested primitive to call instead.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">3</div>
+        <h4>Confused <code>clips</code> with Maya's own Trax <code>cmds.clip()</code></h4>
+        <p>Even with <code>clips.create()</code> spelled out, the model called
+        <code>cmds.clip(...)</code> &mdash; Maya's own <em>built-in</em> command for
+        its legacy Trax nonlinear-animation clip system, a completely
+        unrelated feature. Fix: the primer now explicitly disambiguates.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">4</div>
+        <h4>Hand-wrote a per-key move loop that hit Maya's own collision guard</h4>
+        <p>Asked to shift keys mid-timeline (not from zero, at/after a
+        threshold frame), the model correctly avoided
+        <code>offset_all_keys_to_start_at_zero()</code> (wrong operation for
+        this) but hand-wrote its own per-key <code>cmds.keyframe</code> loop
+        instead &mdash; moving keys one at a time in descending order
+        specifically to dodge collisions, a reasonable-sounding approach
+        that still hit Maya's own <code>RuntimeError: Cannot move keys</code>.
+        Fix: <code>offset_keys_after()</code> was added, using one native
+        bulk range-move per curve instead of a per-key loop &mdash; confirmed
+        against a clean synthetic test curve.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph">5</div>
+        <h4>The bulk-range-move fix wasn't complete either</h4>
+        <p>Confirmed live on a real production rig (144 objects selected)
+        that Maya's own "Cannot move keys" guard can still reject the
+        bulk range-move for one <em>specific</em> curve (an animLayer-blended
+        curve is the leading suspect, not independently confirmed) &mdash;
+        something the synthetic test curve never exposed. The original
+        version let that one refusal abort the <em>entire</em> scene-wide
+        shift, discarding every other curve's already-succeeded move along
+        with it. Fix: each curve's move is now independently
+        try/excepted &mdash; <code>offset_keys_after()</code> returns which
+        curves moved and which failed instead of all-or-nothing.</p>
+      </div>
+    </div>
+    <p>If you add a new <code>ClipsAPI</code> method and skip updating the primer,
+    expect the model to either not use it or use something that looks
+    similar but isn't &mdash; write the primer entry at the same time you write
+    the method, not after something breaks.</p>
+
+    <h2 id="why-this-exists">Why this exists instead of letting the AI write it</h2>
+    <p><code>offset_all_keys_to_start_at_zero()</code> is worth calling out as
+    the general pattern for when to add a <code>ClipsAPI</code> method versus
+    leaving something to the model's own generated code: if an operation has
+    a real correctness trap that's easy to get subtly wrong, don't rely on
+    prompt wording to keep the model from falling into it. Give it a tested
+    function instead. The prompt can say "don't do X" as many times as you
+    like; a curated primitive means there's nothing to do X <em>with</em>.</p>
+
+    <h2 id="extending-clipsapi">Extending <code>ClipsAPI</code> for a new capability</h2>
+    <ol>
+      <li>Add the method to <code>clips_api.py</code>, delegating to the real
+        implementation module (<code>model.py</code>, <code>scene_retime.py</code>,
+        etc.) rather than reimplementing logic inline &mdash; <code>ClipsAPI</code>
+        itself should stay a thin, curated wrapper.</li>
+      <li>Add its signature and a one-line behavior note to the
+        <a href="#method-reference">method reference</a> table above.</li>
+      <li>Add an entry to <code>_ai_context_summary()</code> in
+        <code>animhub/main_window.py</code> describing the method and, if it has
+        a real correctness trap, <em>why</em> the AI should call it instead of
+        writing the equivalent by hand.</li>
+      <li>Write a test in <code>tests/test_clips_api.py</code> covering the
+        delegation.</li>
+    </ol>
+
+    <h2 id="embedding-another-app">Adding AI Companion support to a different app</h2>
+    <p><code>ClipsAPI</code> is AnimHub's own extension of a generic
+    mechanism any application can use &mdash; see
+    <a href="app-ai-companion.html#embedding">AI Companion's Embedding
+    section</a> for <code>AIPanel.set_context()</code>'s full contract
+    (<code>context_provider</code>, <code>extra_namespace_provider</code>,
+    <code>on_run_complete</code>). A different app wanting its own curated AI
+    surface would write its own equivalent class (its own
+    <code>TakesAPI</code>-shaped wrapper over its own domain model) rather than
+    reusing <code>ClipsAPI</code> directly.</p>
+
+    <footer class="doc-footer">
+      <span>&larr; <a href="index.html">Back to overview</a></span>
+      <span>Source: <code>docs/api/clips_api.md</code></span>
+    </footer>
+  </main>
+</div>
+<footer class="site-footer">
+  Selected technical documentation for Core Flow Tools, an independent R&amp;D
+  project. &middot; <a href="../">&larr; Back to the case study</a>
+</footer>
+</body>
+</html>
