@@ -617,6 +617,105 @@ footer.site-footer a:hover { color: var(--primary-hover); }
     color: var(--text-dim);
 }
 
+/* ------------------------------------------------------- ai-showcase --- */
+/* A real natural-language request, quoted, next to the recorded result -
+   evidence the curated-API model actually works end to end, not just a
+   diagram of how it's supposed to. Built to hold more than one entry as
+   they're captured, not a one-off layout. */
+
+.ai-showcase {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin: 16px 0 8px;
+}
+.ai-example {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+}
+.ai-example .ai-eyebrow {
+    margin: 0 0 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--subtitle);
+}
+.ai-example .ai-app-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    margin: 0 0 12px;
+    border-radius: 5px;
+    background: rgba(79,195,247,0.16);
+    color: var(--primary-hover);
+}
+.ai-example .ai-app-tag img { width: 13px; height: 13px; border-radius: 3px; }
+.ai-example blockquote.ai-prompt {
+    position: relative;
+    margin: 0 0 14px;
+    padding: 2px 0 2px 22px;
+    border-left: 3px solid var(--primary);
+    font-size: 15px;
+    font-style: italic;
+    line-height: 1.55;
+    color: var(--text);
+}
+.ai-example blockquote.ai-prompt::before {
+    content: "\201C";
+    position: absolute;
+    left: 1px;
+    top: -8px;
+    font-size: 32px;
+    font-style: normal;
+    color: var(--primary);
+    opacity: 0.55;
+    line-height: 1;
+}
+.ai-example .ai-result {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+}
+.ai-example .ai-result img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 5px;
+}
+.ai-example p.ai-caption {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--text-dim);
+}
+.ai-showcase-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 10px 20px;
+    background: var(--bg-elev);
+    border: 1px solid var(--primary);
+    border-radius: 999px;
+    color: var(--primary-hover);
+    font-size: 13.5px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.ai-showcase-more:hover {
+    background: var(--primary);
+    color: var(--bg);
+}
+
 /* ------------------------------------------------------- responsive --- */
 
 @media (max-width: 880px) {

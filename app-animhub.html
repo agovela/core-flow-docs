@@ -32,6 +32,7 @@
       <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
       <ul>
         <li><a href="app-ai-companion.html">AI Companion</a></li>
+        <li><a href="ai-showcase.html">AI in Action</a></li>
         <li><a href="api-clips.html">ClipsAPI</a></li>
         <li><a href="api-ai-providers.html">AI Provider Backend</a></li>
       </ul>
@@ -237,7 +238,7 @@
     </div>
     </section>
 
-    <h3>Corner toolbar</h3>
+    <h3 id="corner-toolbar">Corner toolbar</h3>
     <p>Five icon-only buttons sit in the menu bar's own top-right corner &mdash;
     left to right: Character Panel toggle, Clip Style cycle, Preview toggle,
     Clip Previewer launch, and Ask AI.</p>
@@ -856,12 +857,53 @@
 
     <h2 id="clip-shuttle">Clip Shuttle (floating nav bar)</h2>
     <p><strong>Tools &gt; Clip Shuttle</strong> (<code>clip_shuttle_dialog.py</code>)
-    opens a small, frameless, translucent, always-on-top pill mirroring the
+    opens a small, frameless, translucent pill mirroring the
     main window's Prev/Current/Next/Checked/All actions, so you can scrub
     clips without the full AnimHub window in the way. It's a thin remote
-    control &mdash; every button delegates straight to the owning main window's
-    own methods, it doesn't reimplement any nav/range logic itself. Non-modal
-    (<code>.show()</code>, stays open alongside the main window).</p>
+    control &mdash; every nav/range button delegates straight to the owning main
+    window's own methods, it doesn't reimplement any nav/range logic itself.
+    Non-modal (<code>.show()</code>, stays open alongside the main window).</p>
+    <div class="note">
+      Deliberately <strong>no</strong> always-on-top window flag &mdash; that
+      pins a window above every top-level window on the OS, other
+      applications included, regardless of its Qt parent (confirmed live: an
+      earlier pass had it floating over unrelated apps, not just Maya).
+      Being a proper child of the main AnimHub window is enough to keep it
+      above Maya without going that far.
+    </div>
+    <p><strong>Search box</strong> &mdash; a live substring match over every
+    clip's name (the same match rule as the main window's own FILTER VIEW
+    search box), surfaced as a small popup of matches since the shuttle has
+    no row list of its own to narrow. Picking a match &mdash; click, or Enter
+    with a match highlighted &mdash; jumps the timeline range and the playhead
+    to that clip, the same "sync then move" behavior as Prev/Next. Typing and
+    pressing Enter without ever touching the popup falls back to the first
+    substring match by clip order rather than doing nothing. The match list
+    itself is rebuilt on every keystroke, so it can't go stale while the bar
+    stays open across clip add/duplicate/delete.</p>
+    <p><strong>Preview Toggle</strong> &mdash; the same icon, and the same
+    underlying <a href="framework.html#animhub-interface-settings">Settings
+    &gt; AnimHub &gt; Interface</a> setting, as the main window's own corner
+    Preview Toggle button (see <a href="#corner-toolbar">Corner toolbar</a>
+    above) &mdash; one setting exposed on two surfaces, not a second
+    independent toggle. Gates the hover preview below.</p>
+    <p><strong>Search-hover preview</strong> &mdash; hovering a match in the
+    search popup (with the toggle above on) triggers the same captured-frame
+    playback as <a href="#hover-preview-popup">Hover preview popup</a>, just
+    keyed off whichever match row the cursor is currently over instead of
+    whichever clip row.</p>
+    <p><strong>Export-current</strong> &mdash; the same export icon and
+    handler as every other export entry point on this page, retargeted at
+    whichever clip is currently under the playhead; disabled whenever
+    nothing is. Deliberately placed away from the Prev/Current/Next cluster
+    (after Checked/All instead) so a stray click while scrubbing can't
+    trigger a real export by accident.</p>
+    <p><strong>Current-take label</strong> &mdash; a faint caption naming
+    whichever clip the playhead currently sits inside, shown only while
+    synced to one. It rides on the same timeChanged tracking the main
+    window's own row highlighting already uses (see
+    <a href="#current-clip-highlighting">Current-clip highlighting</a>)
+    rather than polling a second time on its own.</p>
 
     <h2 id="import-export-metadata">Import/export clip metadata</h2>
     <p><strong>File &gt; Import/Export Clips</strong> (<code>clip_io.py</code>)
@@ -994,7 +1036,35 @@
       delete-and-recreate-from-the-same-anim-source instead, this time
       verified by sampling actual driven attribute values before/after a
       move, not just boundary numbers.
-    </div></p>
+    </div>
+
+    <h3 id="ai-in-action">AI in action</h3>
+    <p>Real requests sent through <strong>Tools &gt; Ask AI</strong>, reviewed
+    and run against the curated <code>clips</code>/<code>time_editor</code>
+    surface above &mdash; not scripted demos.</p>
+    <div class="ai-showcase">
+      <div class="ai-example">
+        <p class="ai-eyebrow">Prompt</p>
+        <blockquote class="ai-prompt">Insert a 100-frame AnimHub clip at frame
+        221 named &ldquo;Navigation_Offset_Test&rdquo;. Offset all subsequent
+        animation clips by 100 frames, and if objects are selected, offset
+        their keyframes by the same amount.</blockquote>
+        <div class="ai-result">
+          <img src="assets/img/AH_Ai_OffsetClips.gif" alt="AnimHub inserting a new 100-frame clip at frame 221, every later clip's range shifted 100 frames later, and the selected object's keyframes shifted to match">
+        </div>
+        <p class="ai-caption">One request, three coordinated edits: a new
+        clip created at an exact frame (<code>clips.create()</code>), every
+        clip starting after it pushed 100 frames later to make room
+        (<code>clips.list()</code> + <code>clips.set_range()</code> per
+        clip), and the selected object's own keyframes shifted by the same
+        amount (<code>clips.offset_keys_after()</code>, documented as
+        &ldquo;THE way to make room for a newly-inserted clip in the middle
+        of an existing timeline&rdquo; &mdash; a dedicated curated call
+        rather than a hand-written per-key loop, for exactly this
+        scenario).</p>
+      </div>
+    </div>
+    <p><a class="ai-showcase-more" href="ai-showcase.html">Explore more cases &rarr;</a></p>
 
     <footer class="doc-footer">
       <span>&larr; <a href="index.html">Back to overview</a></span>

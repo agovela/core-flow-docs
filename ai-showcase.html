@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI in Action — Core Flow Tools Docs</title>
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/img/coreflow-logo.png" alt="">
+      <a href="index.html">Core Flow Tools<span class="tag">Technical Docs</span></a>
+    </div>
+    <div class="case-study-link">
+      <a href="../">&larr; Core Flow Tools Case Study</a>
+    </div>
+    <div class="nav-group">
+      <h6>Overview</h6>
+      <ul><li><a href="index.html">Home</a></li></ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
+      <ul>
+        <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-character-setup.html">Character Setup</a></li>
+        <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
+        <li><a href="app-utilities.html">Utilities</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
+      <ul>
+        <li><a href="app-ai-companion.html">AI Companion</a></li>
+        <li><a href="ai-showcase.html" class="active">AI in Action</a></li>
+        <li><a href="api-clips.html">ClipsAPI</a></li>
+        <li><a href="api-ai-providers.html">AI Provider Backend</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">3</span>Shared Foundation</h6>
+      <ul><li><a href="framework.html">Framework</a></li></ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="doc-header">
+      <div class="tier-pill ai-core">Tier 2 &middot; AI Core</div>
+      <div class="kicker">Real Requests, Real Results</div>
+      <h1>AI in Action</h1>
+      <p class="sub">Core Flow Tools' shared <a href="app-ai-companion.html">AI
+      Companion</a> panel lets any application expose a small, curated,
+      human-reviewed API instead of raw scene access &mdash; a request comes in
+      as natural language, the model proposes Python against that curated
+      surface, and nothing runs until a person reads it and clicks Run (see
+      <a href="app-ai-companion.html">AI Companion</a> and
+      <a href="api-clips.html">ClipsAPI</a> for the full architecture). This
+      page is a running log of real requests captured this way, across
+      whichever application they came from &mdash; not scripted demos, and not
+      a one-time gallery. New cases get added here as they're recorded.</p>
+    </header>
+
+    <div class="ai-showcase">
+      <div class="ai-example">
+        <span class="ai-app-tag">
+          <img src="assets/img/icon-animhub.png" alt="">AnimHub
+        </span>
+        <p class="ai-eyebrow">Prompt</p>
+        <blockquote class="ai-prompt">Insert a 100-frame AnimHub clip at frame
+        221 named &ldquo;Navigation_Offset_Test&rdquo;. Offset all subsequent
+        animation clips by 100 frames, and if objects are selected, offset
+        their keyframes by the same amount.</blockquote>
+        <div class="ai-result">
+          <img src="assets/img/AH_Ai_OffsetClips.gif" alt="AnimHub inserting a new 100-frame clip at frame 221, every later clip's range shifted 100 frames later, and the selected object's keyframes shifted to match">
+        </div>
+        <p class="ai-caption">One request, three coordinated edits: a new
+        clip created at an exact frame (<code>clips.create()</code>), every
+        clip starting after it pushed 100 frames later to make room
+        (<code>clips.list()</code> + <code>clips.set_range()</code> per
+        clip), and the selected object's own keyframes shifted by the same
+        amount (<code>clips.offset_keys_after()</code>, documented as
+        &ldquo;THE way to make room for a newly-inserted clip in the middle
+        of an existing timeline&rdquo; &mdash; a dedicated curated call
+        rather than a hand-written per-key loop, for exactly this
+        scenario). Full reference in <a href="api-clips.html">ClipsAPI</a>.</p>
+      </div>
+    </div>
+    <div class="note">
+      More cases land here as they're captured across AnimHub, Character
+      Setup, and every other application that binds into the AI Companion
+      &mdash; this page grows with the suite, it isn't scoped to one app.
+    </div>
+
+    <footer class="doc-footer">
+      <span>&larr; <a href="index.html">Back to overview</a></span>
+    </footer>
+  </main>
+</div>
+<footer class="site-footer">
+  Selected technical documentation for Core Flow Tools, an independent R&amp;D
+  project. &middot; <a href="../">&larr; Back to the case study</a>
+</footer>
+</body>
+</html>
