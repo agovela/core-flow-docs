@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -23,6 +23,7 @@
       <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
       <ul>
         <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-batch.html">Batch</a></li>
         <li><a href="app-character-setup.html">Character Setup</a></li>
         <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
         <li><a href="app-utilities.html">Utilities</a></li>
@@ -195,7 +196,20 @@ if window is not None:
         <code>None</code>. Searches <code>QApplication.instance().allWidgets()</code>
         (every live widget), not just <code>topLevelWidgets()</code>, because a
         docked widget is reparented under the workspaceControl's own layout and
-        is no longer top-level.</li>
+        is no longer top-level. Matches via <code>isinstance()</code> first,
+        then falls back to a class-name + module-name match if that finds
+        nothing &mdash; <strong>regression guard for a real reported
+        bug</strong>: a RefreshCoreTools reload builds a fresh class object
+        for the same module+name, so an instance already open from
+        <em>before</em> the reload fails a plain <code>isinstance()</code>
+        check forever even though it's still visible on screen. Concrete
+        consequence this caused: Batch's own "Ask AI" button calling
+        <code>window.set_context()</code> against <code>None</code> on an
+        already-open AI Companion panel, leaving it with zero app context
+        bound for the next prompt &mdash; the model then correctly (if
+        confusingly) reported it had no curated API to work with. The
+        name+module fallback survives a reload since neither of those
+        actually changes.</li>
       <li><strong><code>is_dockable_window_open(window_class)</code></strong> &mdash; True
         only if the tool is <em>actually open right now</em>, not merely if its
         workspaceControl object still exists. Closing a workspaceControl via its
@@ -215,6 +229,52 @@ if window is not None:
     This exists specifically for
     <a href="#refreshcoretools-dev-reload">RefreshCoreTools</a>; normal
     relaunches should always go through <code>show_dockable()</code>.</p>
+    <p>Takes an optional <code>on_recreated(window)</code> callback, invoked
+    with the freshly-built instance right after <code>show()</code> &mdash;
+    the caller's one chance to restore per-instance state a plain
+    teardown+rebuild otherwise silently wipes. <strong>Real reported bug,
+    more than once</strong>: <code>AIPanel</code> carries a bound
+    <code>context_provider</code>/<code>extra_namespace_provider</code>/<code>on_run_complete</code>
+    set via <code>set_context()</code> (see
+    <a href="app-ai-companion.html#embedding">Embedding in another
+    app</a>) &mdash; running RefreshCoreTools while the AI Companion panel
+    was open (an extremely ordinary thing to do mid-session) rebuilt it
+    from scratch with default constructor args, silently losing that
+    binding. The next prompt into what still looked like the same,
+    already-working panel got a correct-but-confusing "no context
+    available" response, since nothing told the user their panel had
+    just been replaced underneath them.
+    <code>RefreshCoreTools._refresh_dockable_tool()</code> now captures
+    the old instance's context via <code>find_dockable_instance()</code>
+    before the rebuild (duck-typed via
+    <code>hasattr(old_window, "context_provider")</code>, not an
+    <code>AIPanel</code>-specific <code>isinstance</code> check, so any
+    future dockable adopting the same <code>set_context()</code> pattern
+    gets this for free) and restores it through <code>on_recreated</code>
+    once the new instance exists.</p>
+    <p><strong>The same problem in the other direction, also fixed</strong>: an
+    AI-embedding app's own window (CF Batch, CF AnimHub &mdash; anything with
+    its own <code>_on_ask_ai()</code>) rebuilding leaves the <em>separate</em>,
+    untouched AI Companion panel still holding closures over the OLD,
+    now-destroyed instance &mdash;
+    <code>extra_namespace_provider=lambda: {"batch": BatchAPI(self.library, self.queue)}</code>
+    and <code>on_run_complete=self._on_ai_run_complete</code> both capture
+    <code>self</code> at <code>_on_ask_ai()</code> time. <strong>Real reported
+    bug</strong>: after CF Batch's own window got rebuilt (an extremely
+    ordinary thing to do mid-edit), the AI Companion panel &mdash; itself
+    untouched, still visibly open &mdash; kept running AI-generated code
+    against the dead instance's <code>batch</code> object and calling
+    <code>on_run_complete()</code> on it; <code>ai_panel.py</code>'s own
+    <code>except Exception: pass</code> around that call means the failure was
+    completely silent, so the Script Library/Queue just never refreshed after
+    an AI-authored run, with no visible error anywhere.
+    <code>_refresh_dockable_tool()</code> also checks
+    <code>hasattr(window_class, "_on_ask_ai")</code> &mdash; duck-typed the
+    same way, so it applies to any current or future AI-embedding app &mdash;
+    and, only if the AI Companion panel is <em>already</em> open, calls the
+    fresh instance's own <code>_on_ask_ai()</code> through the same
+    <code>on_recreated</code> hook to rebind it. Never force-opens the AI
+    Companion for an app that isn't currently using it.</p>
 
     <h2 id="menu-discovery">Menu discovery</h2>
     <p>A <code>.py</code> file under <code>dcc/maya/menu_tools/</code> automatically

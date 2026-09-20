@@ -23,6 +23,7 @@
       <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
       <ul>
         <li><a href="app-animhub.html" class="active">AnimHub</a></li>
+        <li><a href="app-batch.html">Batch</a></li>
         <li><a href="app-character-setup.html">Character Setup</a></li>
         <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
         <li><a href="app-utilities.html">Utilities</a></li>
@@ -189,15 +190,22 @@
         from Bookmark Manager, batch rename, groups manager, a Clip Preview
         submenu &mdash; Enable Clip Preview / Generate Missing Previews / Delete
         All Previews, grouped together), <strong>Characters</strong> (character
-        hierarchy view, panel toggle), <strong>Tools</strong> (Time Editor sync,
-        Game Exporter sync, Clip Previewer, Clip Shuttle, background export,
+        hierarchy view, panel toggle, <strong>Tag Selected as Character</strong> &mdash;
+        see <a href="#tag-selected-as-character">Tag Selected as
+        Character</a>), <strong>Tools</strong> (Time Editor sync,
+        Game Exporter sync, Clip Previewer, Clip Remote, background export,
         and Ask AI), <strong>Help</strong>.</p>
       </div>
       <div class="feature">
         <div class="glyph">&#9635;</div>
         <h4>Character panel</h4>
         <p>Sits under the menu bar, above the toolbar; hidden by default,
-        toggled from Characters &gt; Display Character Panel.</p>
+        toggled from Characters &gt; Display Character Panel. Columns are
+        <strong>Character</strong> (name), <strong>File Name</strong> (export
+        name), <strong>Asset</strong> (type), <strong>Export From</strong>
+        (bake mode). Character and File Name are editable in place
+        &mdash; see
+        <a href="#tag-selected-as-character">Tag Selected as Character</a>.</p>
       </div>
       <div class="feature">
         <div class="glyph">&#128269;</div>
@@ -239,11 +247,15 @@
     </section>
 
     <h3 id="corner-toolbar">Corner toolbar</h3>
-    <p>Five icon-only buttons sit in the menu bar's own top-right corner &mdash;
+    <p>Six icon-only buttons sit in the menu bar's own top-right corner &mdash;
     left to right: Character Panel toggle, Clip Style cycle, Preview toggle,
-    Clip Previewer launch, and Ask AI.</p>
+    Clip Previewer launch, Clip Remote launch, and Ask AI.</p>
     <p><img src="assets/img/AH_icons.png" alt="AnimHub's corner toolbar: five icon buttons"
        style="border:1px solid var(--border); border-radius:6px; background:var(--bg-elev); padding:6px;"></p>
+    <div class="note">
+      This screenshot predates the Clip Remote launch button added below -
+      due for a refresh.
+    </div>
     <div class="feature-grid">
       <div class="feature">
         <div class="glyph"><img src="assets/img/characterPanel.png" alt="" style="width:20px;height:20px;"></div>
@@ -268,6 +280,12 @@
         <h4>Clip Previewer</h4>
         <p>Opens the standalone gallery window - see
         <a href="#cf-clip-previewer">Clip Previewer (gallery window)</a>.</p>
+      </div>
+      <div class="feature">
+        <div class="glyph"><img src="assets/img/remote.png" alt="" style="width:20px;height:20px;"></div>
+        <h4>Clip Remote</h4>
+        <p>Opens the floating remote-control nav bar - see
+        <a href="#clip-remote">Clip Remote (floating nav bar)</a>.</p>
       </div>
       <div class="feature">
         <div class="glyph"><img src="assets/img/icon-ai-companion-inapp.png" alt="" style="width:20px;height:20px;border-radius:4px;"></div>
@@ -813,7 +831,20 @@
     same <code>thumbnail_render.HoverPreviewThumbnail</code> rendering/hover-animation
     logic rather than reimplementing it. Left-click emits
     <code>syncRequested</code> if the clip already has a preview, or
-    <code>generateRequested</code> if not ("click to generate"); right-click
+    <code>generateRequested</code> if not ("click to generate").
+    <strong>Alt+click</strong> emits <code>playRequested</code> regardless
+    of preview state &mdash; the same sync-then-play-once gesture a clip
+    row's own header and the <a href="#clip-remote">Clip Remote</a>'s Play
+    button already trigger, unconditional because it plays the real Maya
+    timeline, which has nothing to do with the captured-thumbnail preview
+    system a plain click branches on. <strong>Ctrl+drag scrubs</strong>
+    within the clip's own range, the same gesture and cadence as a clip
+    row's own Ctrl+drag &mdash; implemented directly on the tile itself,
+    unlike the click paths above (which only ever emit a signal and let
+    the window do the actual scene write): a tile is tied to exactly one
+    fixed clip the same way a row is, so there's no dynamic "which clip"
+    lookup to justify pushing this up into the window the way Ctrl+drag on
+    the <a href="#clip-remote">Clip Remote</a> bar needed to. Right-click
     offers Sync Take / Generate Clip Preview / Delete Preview
     (shown-but-disabled without a preview) / <strong>Export</strong> (calls
     <code>export_pipeline.export_clip</code> directly).</p>
@@ -855,25 +886,96 @@
     last. Invalid regex is caught and silently no-ops for that clip rather
     than raising.</p>
 
-    <h2 id="clip-shuttle">Clip Shuttle (floating nav bar)</h2>
-    <p><strong>Tools &gt; Clip Shuttle</strong> (<code>clip_shuttle_dialog.py</code>)
-    opens a small, frameless, translucent pill mirroring the
+    <h2 id="tag-selected-as-character">Tag Selected as Character (quick tagging)</h2>
+    <p><strong>Characters &gt; Tag Selected as Character</strong> creates a
+    new character (default naming &mdash; the same bare creation call
+    <a href="app-character-setup.html">Character Setup Tool</a>'s own "Add
+    Character" button uses) with the current selection's first object as
+    its export root, without opening the full Character Setup Tool window
+    at all. Nothing selected shows an info dialog rather than silently
+    doing nothing; more than one object selected uses the first and logs
+    which one, rather than guessing at a combined hierarchy.</p>
+    <p>The character panel opens automatically if it was hidden, since a
+    just-tagged character with the default name (itself "Character") is
+    exactly what you'd want to rename next. The
+    <strong>Character</strong> and <strong>File Name</strong> columns
+    are editable right in the tree &mdash; double-click a cell, or
+    right-click &gt; Rename (which starts editing the Character cell,
+    same as a double-click there would). <strong>Asset</strong> and
+    <strong>Export From</strong> stay display-only here (enum-backed,
+    not free text &mdash; still editable from the full Character Setup
+    Tool). Editing the Character cell also renames the underlying Maya
+    node to match, the same way Character Setup Tool's own name field
+    does.</p>
+
+    <h2 id="clip-remote">Clip Remote (floating nav bar)</h2>
+    <p>Named for what it is &mdash; a small, floating remote control for
+    scrubbing clips without the full AnimHub window in the way &mdash; not
+    "Clip Shuttle," its working name during development ("shuttle" is a
+    generic drag-and-drop list-shuttle UI pattern used elsewhere in this
+    app; the rename avoids the collision).</p>
+    <p><strong>Tools &gt; Clip Remote</strong>, or the corner toolbar's
+    dedicated launch button (see <a href="#corner-toolbar">Corner
+    toolbar</a> above), opens a small, frameless, translucent pill
+    (<code>clip_remote_dialog.py</code>) mirroring the
     main window's Prev/Current/Next/Checked/All actions, so you can scrub
     clips without the full AnimHub window in the way. It's a thin remote
     control &mdash; every nav/range button delegates straight to the owning main
     window's own methods, it doesn't reimplement any nav/range logic itself.
-    Non-modal (<code>.show()</code>, stays open alongside the main window).</p>
+    Non-modal (<code>.show()</code>, stays open alongside the main window).
+    Re-triggering either entry point while one is already open closes the
+    old instance first rather than stacking a second copy on screen.
+    Button order: Prev, Play, Next, Current, Checked, All &mdash; Play sits
+    between Prev/Next since it's a transport action like them, not a
+    range-setting one.</p>
+    <p><strong>Ctrl+drag / Alt+click</strong> work over the whole bar,
+    the same gesture a clip row's own header already supports &mdash;
+    installed on the dialog itself plus every child widget, since a click
+    landing on any button or the search box would otherwise never reach
+    the bar's own handling. Ctrl+drag scrubs the timeline; Alt+click calls
+    the same handler the Play button uses. The one real difference from a
+    row: a row always has exactly one clip to scrub within, but this bar
+    doesn't, so a Ctrl+drag looks up whichever clip is currently under the
+    playhead (respecting the group filter, same as Current/Play) and
+    clamps the drag to that clip's range &mdash; or, with no clip under
+    the playhead, to the existing timeline range instead of refusing to
+    scrub at all. A plain click with no modifier is left completely
+    untouched, so it still drags the whole window by clicking anywhere on
+    the bar. Neither gesture has any other visible affordance, so the bar
+    itself carries a tooltip spelling them out ("Ctrl + Left-Click Drag =
+    Scrub" / "Alt + Left-Click = Playback") wherever the cursor is over
+    blank chrome rather than a widget with its own more specific
+    tooltip.</p>
+    <p>Sizing has gone through three passes, converging on a split design:
+    bumped up once after it read as too thin to grab-and-drag by the gaps
+    between its own controls, scaled back ~30% from that, then still too
+    big, scaled down again to the current sizing. Text sizes never moved
+    across any of the three passes &mdash; only the structural chrome
+    (padding, radii, fixed button sizes, margins).</p>
+    <p>The grip is the one exception, moving the <em>opposite</em>
+    direction on the third pass &mdash; deliberately not scaled down with
+    everything else, since it's the actual drag handle the whole "hard to
+    grab" feedback was about. Fixing it surfaced a real bug: the grip is a
+    plain widget child, and a click landing on its own pixels never
+    reached the dialog's own drag-window handling (which only fires for
+    bare background not already covered by a child) &mdash; it visually
+    suggested "drag me" but a click precisely on it often silently did
+    nothing. It's now wired as a real, reliable drag target instead of
+    just a visual hint.</p>
     <div class="note">
       Deliberately <strong>no</strong> always-on-top window flag &mdash; that
       pins a window above every top-level window on the OS, other
       applications included, regardless of its Qt parent (confirmed live: an
       earlier pass had it floating over unrelated apps, not just Maya).
       Being a proper child of the main AnimHub window is enough to keep it
-      above Maya without going that far.
+      above Maya without going that far. It also opens centered on Maya's
+      own main window rather than on its parent &mdash; Qt's default
+      placement for a parented dialog centers it over the parent, which for
+      AnimHub meant directly on top of it, hard to even see or grab to move.
     </div>
     <p><strong>Search box</strong> &mdash; a live substring match over every
     clip's name (the same match rule as the main window's own FILTER VIEW
-    search box), surfaced as a small popup of matches since the shuttle has
+    search box), surfaced as a small popup of matches since this bar has
     no row list of its own to narrow. Picking a match &mdash; click, or Enter
     with a match highlighted &mdash; jumps the timeline range and the playhead
     to that clip, the same "sync then move" behavior as Prev/Next. Typing and
@@ -881,6 +983,15 @@
     substring match by clip order rather than doing nothing. The match list
     itself is rebuilt on every keystroke, so it can't go stale while the bar
     stays open across clip add/duplicate/delete.</p>
+    <p><strong>Group filter</strong> &mdash; a combo box to the right of the
+    search box, "All" plus every registered group name, behaving like the
+    main window's own <a href="#main-window-tour">group tabs</a>: only shown
+    at all when a real group exists (a scene with no groups gets no combo,
+    not one offering nothing but "All"), and selecting one narrows the
+    search box's own matches to that group. Prev/Current/Next respect it
+    too &mdash; they cycle within the selected group only, and Current
+    becomes a no-op rather than reframing to it if the playhead happens to
+    sit inside a clip outside the selected group.</p>
     <p><strong>Preview Toggle</strong> &mdash; the same icon, and the same
     underlying <a href="framework.html#animhub-interface-settings">Settings
     &gt; AnimHub &gt; Interface</a> setting, as the main window's own corner
@@ -892,6 +1003,14 @@
     playback as <a href="#hover-preview-popup">Hover preview popup</a>, just
     keyed off whichever match row the cursor is currently over instead of
     whichever clip row.</p>
+    <p><strong>Play</strong> &mdash; the same sync-then-play-once behavior a
+    clip row's own Alt+click gesture already triggers, retargeted at
+    whichever clip is currently under the playhead (respecting the group
+    filter, like Current) instead of a fixed row: sets the timeline range to
+    that clip, rewinds to its start, and plays once. With no clip under the
+    playhead (or the group filter excludes it), falls back to rewinding to
+    the existing timeline range's own start and playing, rather than doing
+    nothing.</p>
     <p><strong>Export-current</strong> &mdash; the same export icon and
     handler as every other export entry point on this page, retargeted at
     whichever clip is currently under the playhead; disabled whenever

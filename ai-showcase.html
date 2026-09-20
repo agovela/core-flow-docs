@@ -23,6 +23,7 @@
       <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
       <ul>
         <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-batch.html">Batch</a></li>
         <li><a href="app-character-setup.html">Character Setup</a></li>
         <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
         <li><a href="app-utilities.html">Utilities</a></li>
@@ -83,6 +84,75 @@
         of an existing timeline&rdquo; &mdash; a dedicated curated call
         rather than a hand-written per-key loop, for exactly this
         scenario). Full reference in <a href="api-clips.html">ClipsAPI</a>.</p>
+      </div>
+
+      <div class="ai-example">
+        <span class="ai-app-tag">
+          <img src="assets/img/icon-animhub.png" alt="">AnimHub
+        </span>
+        <p class="ai-eyebrow">Prompt</p>
+        <blockquote class="ai-prompt">I&rsquo;ve many animation clips in
+        Time Editor, offset them so they don&rsquo;t overlap, leaving a
+        2 frame gap between the clips, then sync the Time Editor to
+        AnimHub, replacing any takes in AnimHub, and baking the keys back
+        to the scene.</blockquote>
+        <div class="ai-result">
+          <img src="assets/img/AH_Ai_TimeEditor01.gif" alt="Overlapping Time Editor clips repositioned end-to-end with a 2-frame gap between each, then AnimHub's own clip list replaced from the retimed Time Editor and the result baked back onto the scene's keyframes">
+        </div>
+        <p class="ai-caption">A request that spans two different systems
+        in one pass. Time Editor's own clips aren&rsquo;t part of
+        <a href="api-clips.html">ClipsAPI</a>'s curated surface at all
+        (they're a separate native Maya data structure from AnimHub's own
+        CF clips), so the model reads and repositions them directly
+        against Maya's Time Editor commands to compute the non-overlapping,
+        2-frame-gapped layout - exactly the kind of request the safety
+        model is built for: no curated method covers it, so it falls back
+        to precise, reviewable native calls instead of inventing one. The
+        second half reuses real, existing CoreTools code rather than
+        hand-rolled logic: the same <code>time_editor_sync.py</code> read
+        (<code>list_time_editor_clips()</code>) and bake
+        (<code>bake_clips_to_scene()</code>) functions that back AnimHub's
+        own human-facing <strong>Tools &gt; TimeEditor &gt; Sync Clips to
+        Timeline Editor...</strong> dialog, driven here without the modal
+        dialog in the way since the whole point is a script the AI can
+        propose and a human can review in one read, not a UI it has to
+        click through.</p>
+      </div>
+
+      <div class="ai-example">
+        <span class="ai-app-tag">
+          <img src="assets/img/icon-batch.png" alt="">Batch
+        </span>
+        <p class="ai-eyebrow">Prompt</p>
+        <blockquote class="ai-prompt">Take the file in queue, if it&rsquo;s
+        an image file, use FFMPEG to compress/re-scale until the file is
+        less than 25MB save in the same folder and Name the file with a
+        &ldquo;Version Number&rdquo; check file size after generating, if
+        bigger than 25MG do the process again. Don&rsquo;t run more than
+        20 times.</blockquote>
+        <div class="ai-result">
+          <img src="assets/img/Batch_AI.gif" alt="CF Batch's Process Queue running an AI-authored ffmpeg compression script against a queued animated GIF, producing a versioned, size-checked output under the 25MB limit">
+        </div>
+        <p class="ai-caption">Written to solve a real, immediate need
+        while building this documentation: the GIFs used throughout this
+        site (including the two above) start out too large to embed
+        comfortably, and needed compressing without hand-running ffmpeg
+        flags each time. Describing the constraint in plain English and
+        letting CF Batch's own AI Companion turn it into a queued,
+        reusable script turned a one-off manual chore into an automated
+        one. The model calls <code>batch.create_script()</code> +
+        <code>batch.queue_script()</code> to register a real library
+        entry (not a one-shot inline script), which itself resolves
+        ffmpeg through <code>ffmpeg_tool.resolve_ffmpeg()</code> rather
+        than assuming a bare <code>"ffmpeg"</code> is on PATH, and -
+        because the target here is an animated GIF specifically - uses
+        the same two-pass <code>palettegen</code>/<code>paletteuse</code>
+        technique documented in <a href="app-batch.html#ai-companion-integration">Batch's
+        own AI Companion integration</a> rather than a naive scale-only
+        re-encode, which bands badly on a GIF's limited palette. Each
+        attempt re-checks the resulting file size and tries again at a
+        smaller scale, up to the requested cap, stopping the moment it's
+        under 25MB.</p>
       </div>
     </div>
     <div class="note">

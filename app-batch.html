@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Batch — Core Flow Tools Docs</title>
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      <img class="logo" src="assets/img/coreflow-logo.png" alt="">
+      <a href="index.html">Core Flow Tools<span class="tag">Technical Docs</span></a>
+    </div>
+    <div class="case-study-link">
+      <a href="../">&larr; Core Flow Tools Case Study</a>
+    </div>
+    <div class="nav-group">
+      <h6>Overview</h6>
+      <ul><li><a href="index.html">Home</a></li></ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
+      <ul>
+        <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-batch.html" class="active">Batch</a></li>
+        <li><a href="app-character-setup.html">Character Setup</a></li>
+        <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
+        <li><a href="app-utilities.html">Utilities</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">2</span>AI Core</h6>
+      <ul>
+        <li><a href="app-ai-companion.html">AI Companion</a></li>
+        <li><a href="ai-showcase.html">AI in Action</a></li>
+        <li><a href="api-clips.html">ClipsAPI</a></li>
+        <li><a href="api-ai-providers.html">AI Provider Backend</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h6 class="tier"><span class="tier-index">3</span>Shared Foundation</h6>
+      <ul><li><a href="framework.html">Framework</a></li></ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="doc-header">
+      <div class="tier-pill applications">Tier 1 &middot; Applications</div>
+      <div class="kicker">Utilities</div>
+      <div class="title-row">
+        <img class="app-icon" src="assets/img/icon-batch.png" alt="">
+        <h1>Batch</h1>
+      </div>
+      <p class="sub"><code>dcc/maya/batch/main_window.py</code> &mdash;
+      <code>CFBatchWindow</code>, launched from <strong>Utilities &gt; CF
+      Batch</strong>. A file-agnostic batch runner: queue any files, stack
+      tagged (and AI-authored) scripts against them, run. CoreTools' own
+      clean-room batch-processing implementation &mdash; queueing,
+      module stacking, JSON templates, source-folder favorites.</p>
+    </header>
+
+    <div class="note">
+      <code>CFBatchWindow</code> is registered in
+      <code>RefreshCoreTools.DOCKABLE_TOOLS</code> (see
+      <a href="framework.html#refreshcoretools-dev-reload">RefreshCoreTools</a>)
+      &mdash; a real gap existed here for a while: an open Batch window
+      silently didn't pick up edited code on RefreshCoreTools, unlike
+      every other dockable app, simply because it had never been added to
+      that list.
+    </div>
+
+    <h2 id="core-concept">Core concept: three independent things</h2>
+    <p>A batch run combines three things that don't have to relate to each
+    other at all:</p>
+    <ul>
+      <li><strong>Files</strong> &mdash; any file type, or none. Batch
+        never opens, inspects, or assumes anything about a queued file;
+        it's just a string handed to whichever script asks for it.</li>
+      <li><strong>Pre-process scripts</strong> &mdash; run once each,
+        before anything else, <code>file_path=None</code>.</li>
+      <li><strong>Per-file scripts</strong> &mdash; run once per queued
+        file (or once with <code>file_path=None</code> if the file queue
+        is empty &mdash; useful for scene-agnostic operations, like
+        generating a report or cleaning stale temp files).</li>
+    </ul>
+    <p><strong>Nothing here ever auto-opens a Maya scene</strong> &mdash; a
+    deliberate, load-bearing design decision. Batch's own runner
+    (<code>runner.py</code>) just calls
+    <code>main(file_path, **input_variables)</code> &mdash; a script that
+    wants a scene open calls
+    <code>cmds.file(file_path, open=True, force=True)</code> itself. See
+    <code>Scripts/Maya/OpenScene.py</code>, which exists as an explicit,
+    queueable first step for exactly that reason. This is also what makes
+    the tool genuinely file-agnostic: the same queue can hold Maya scenes,
+    FBX files, videos for the FFmpeg script, plain text files, or nothing
+    at all.</p>
+
+    <h2 id="script-contract">Script contract</h2>
+    <p>A script is any <code>.py</code> file under a library root
+    (<code>Scripts/</code> next to <code>main_window.py</code>, or a
+    folder added via <code>ScriptLibrary(roots=[...])</code>). Folders
+    become path segments in its <strong>display path</strong> (e.g.
+    <code>FFmpeg/ConvertVideo</code>) &mdash; what the UI, the queue, and
+    templates all address it by.</p>
+    <pre><code>tool_tip = "One-line description shown in the Properties panel."
+
+tags = ["ffmpeg", "video", "convert"]   # optional - see Tags below
+
+input_variables = {
+    "amount":   {"type": "int",       "default": 1},
+    "label":    {"type": "string",    "default": "", "placeholder": "..."},
+    "enabled":  {"type": "bool",      "default": True},
+    "mode":     {"type": "choice",    "default": "A", "choices": ["A", "B"]},
+    "ratio":    {"type": "float",     "default": 1.0, "decimals": 2},
+    "code":     {"type": "plaintext", "default": "", "min_height": 120},
+    "out_dir":  {"type": "folder",    "default": ""},
+}
+
+def main(file_path, **kwargs):
+    ...
+    return True   # False fails the run; an exception fails it too and is logged</code></pre>
+    <p>Seven recognized <code>input_variables</code> types, one dedicated
+    Qt widget each (<code>main_window.py</code>'s
+    <code>_build_input_control()</code>); anything unrecognized falls back
+    to a plain string field. <code>"folder"</code> is a text field +
+    <strong>Browse...</strong> button opening a real folder picker, for
+    exactly the <code>output_directory</code>-style fields several shipped
+    scripts already have. Raise
+    <code>runner.ScriptSkipRemaining(reason=..., skipped_by=...)</code>
+    from inside <code>main()</code> to abort the rest of <em>that file's</em>
+    remaining scripts and move on to the next file &mdash; it never
+    aborts the whole run. A script with no <code>main()</code> fails to
+    load with a clear error the moment the UI touches it (tooltip,
+    properties panel, or a run attempt).</p>
+
+    <h2 id="main-window-tour">Main window tour</h2>
+    <p>Three-column body over a file queue &mdash; Source Files / Script
+    Library / Properties &mdash; simplified in one place (documented in
+    <code>main_window.py</code>'s own module docstring):</p>
+    <ul>
+      <li><strong>Source Files</strong> (left) &mdash; a source path field
+        with a favorites star, Browse, a Sub-folders checkbox, and
+        Refresh, feeding an OS-style folder tree (when Sub-folders is
+        checked; a flat one-level listing if not) with real file/folder
+        icons via <code>QFileIconProvider</code>. Lazily populated like a
+        real file browser &mdash; a folder shows a dummy-backed expand
+        arrow the moment it's discovered, and its actual contents are
+        only scanned the first time it's expanded, not an eager
+        recursive <code>os.walk()</code> of the whole tree up front.
+        Folder branches aren't selectable themselves, so
+        multi-selecting always yields real files.
+        <strong>Add to Queue</strong> moves the selection into
+        the Batch Queue below. On a completely fresh setup (no source path
+        ever saved), the field starts at the current project root
+        (<code>core.project.get_project_root()</code>, the same one
+        Settings &gt; Project resolves) instead of empty &mdash; a
+        deliberately-cleared path stays empty on the next launch, since
+        that's a real user choice, not the same as "never configured."</li>
+      <li><strong>Script Library</strong> (middle) &mdash; a
+        search/tag-filtered <strong>tree</strong>, grouped by the script's
+        own folder (see <a href="#script-library-tree">Script library
+        tree</a>), feeding either stack tab via <strong>Add to
+        Stack</strong> or a double-click. The <strong>Script Queue</strong>
+        tab is the default, active one; <strong>Pre-Process</strong> is
+        hidden behind a left-aligned <strong>Show Pre-Process</strong>
+        checkbox above the tabs (unchecked by default and persisted)
+        &mdash; most stacks never use Pre-Process at all. Double-click a
+        stack entry to give it a short <strong>note</strong> (see
+        <a href="#queue-entry-notes">Queue entry notes</a>). Each tab's
+        own ordered stack has a checkbox per entry (the enable/disable
+        toggle), Move Up/Down, Remove, and a context menu (Edit Note...
+        when right-clicking an entry / Enable All Scripts / Disable All
+        Scripts / Clear Stack / Save Module Stack / Save Module Stack
+        As... / Load Module Stack... &mdash; see
+        <a href="#module-stacks">Module stacks</a>, <strong>not</strong>
+        the whole-queue Save/Load Queue below).</li>
+      <li><strong>Properties</strong> (right) &mdash; two modes, whichever
+        list you clicked last: single-click a library script for a
+        <strong>read-only</strong> preview of what it does, or select a
+        <strong>stack</strong> entry to edit its live
+        <code>input_variables</code> (autosaved on every change). See
+        <a href="#properties-panel">Properties panel</a>.</li>
+      <li><strong>Batch Queue</strong> (bottom) &mdash; a
+        <strong>Saved queue</strong> search-as-you-type dropdown + Save
+        button (the whole-bundle kind &mdash; see
+        <a href="#named-queues">Named queues</a>), the file list
+        (right-click a queued <code>.ma</code>/<code>.mb</code> file for
+        <strong>Preview Clips...</strong> &mdash; see
+        <a href="#preview-clips">Preview Clips</a>), Remove Selected /
+        Clear, <strong>Process Queue</strong> (progress bar tracks each
+        script &times; file step as it runs), and Open Logs Folder.</li>
+    </ul>
+    <p>A real <strong>File menu</strong> (Save Queue / Save Queue As... /
+    Load Queue... / Close) and a separate <strong>Modules menu</strong>
+    (Save Module Stack / Save Module Stack As... / Load Module Stack...)
+    sit above the toolbar, with the <strong>AI icon button</strong> as the
+    menu bar's own corner widget (<code>QMenuBar.setCornerWidget()</code>)
+    &mdash; the same mechanism CF AnimHub's own menu bar uses for its
+    corner buttons, not just a visually-similar top-row button. See
+    <a href="#ai-companion-integration">AI Companion integration</a>.</p>
+
+    <h2 id="script-library-tree">Script library tree</h2>
+    <p>The library browser is a <code>QTreeWidget</code>, one top-level
+    branch per top-level script folder &mdash; <code>Scripts/Maya/*</code>
+    groups under a "Maya" branch, <code>Scripts/FFmpeg/*</code> under
+    "FFmpeg", <code>Scripts/AnimHub/*</code> under "AnimHub", and so on,
+    mirroring <code>ScriptLibrary.refresh()</code>'s own recursive folder
+    walk (<code>model.py</code>) exactly &mdash; the UI doesn't discover
+    anything the model didn't already find, it just presents that
+    structure as a tree instead of a flat list. Folder branches aren't
+    selectable or queueable themselves (only leaf scripts are);
+    double-clicking or <strong>Add to Stack</strong> on a leaf adds it to
+    whichever stack tab is active.</p>
+    <p>Typing in the search box or picking a tag filters by hiding
+    non-matching leaves &mdash; a folder with <strong>every</strong> child
+    hidden hides itself too, so a folder still showing means at least one
+    of its scripts matches. The tree expands fully on every refresh.</p>
+
+    <h2 id="tags">Tags</h2>
+    <p>Two sources, unioned: a script's own module-level <code>tags</code> list
+    (ships with the file, read-only from the UI), and a per-user JSON
+    sidecar (<code>tags_index.json</code>, outside the library root on
+    purpose &mdash; tagging a shared or version-controlled script never
+    means editing that file). Right-click a script in the library &gt;
+    <strong>Edit Tags...</strong> to add your own. The search box and the
+    tag dropdown both filter against the union
+    (<code>ScriptLibrary.search()</code>), and it's the same call
+    <code>BatchAPI.search_scripts()</code> uses for the AI.</p>
+    <p>Same right-click menu also has <strong>Rename...</strong>
+    (<code>ScriptLibrary.rename_script()</code> &mdash; renames the
+    underlying <code>.py</code> file in place, same category folder, with
+    the same sanitize-and-uniquify protection <code>new_script_path()</code>
+    gives an AI-authored name; tags carry over to the new display path)
+    and <strong>Browse to Script</strong> (opens Explorer with the file
+    selected, via <code>explorer /select,</code>). Renaming a script
+    that's already queued (either stack) migrates every matching
+    <code>QueueEntry.script_path</code> to the new display path too, so
+    an in-progress queue never silently points at a script that no
+    longer exists under its old name.</p>
+
+    <h2 id="favorites">Favorites</h2>
+    <p>Quick jumps for the source folder (left-click the star to jump,
+    right-click to add/manage). Favorites are stored as a
+    <strong>real list</strong> (<code>core.config.UserConfig</code>, a
+    flat value CoreTools' own config layer round-trips cleanly), not a
+    comma-joined string &mdash; a folder path containing a comma can't
+    silently corrupt the list here. <strong>Manage Favorites</strong>
+    (right-click &gt; Manage Favorites) opens a small dialog
+    (<code>favorites_dialog.py</code>) &mdash; Move Up/Down/Remove, saved
+    immediately on every change, no separate OK/Cancel.</p>
+
+    <h2 id="properties-panel">Properties panel</h2>
+    <p>One panel, two modes &mdash; whichever list you clicked last
+    decides which mode shows:</p>
+    <ul>
+      <li><strong>Library selection (read-only preview)</strong> &mdash;
+        single-clicking a script in the library shows its description,
+        tags, and a plain-text summary of each <code>input_variables</code>
+        entry (type, default, choices, description). Nothing here is
+        editable, because there's no <code>QueueEntry</code> yet to write
+        values back into &mdash; it isn't queued.</li>
+      <li><strong>Stack selection (live, editable)</strong> &mdash;
+        selecting a queued entry in either stack tab builds the real
+        input widgets from that script's <code>input_variables</code>,
+        current values seeded from that entry's own saved values (falling
+        back to each field's <code>default</code>). Every edit writes
+        straight back into <code>QueueEntry.input_variables</code> and
+        triggers an autosave &mdash; there's no separate "Apply" step.</li>
+    </ul>
+
+    <h2 id="queue-entry-notes">Queue entry notes</h2>
+    <p>An optional short reminder shown to the right of a stack entry's
+    own script name, e.g. <code>FFmpeg/ConvertVideo&nbsp;&nbsp;&mdash;&nbsp;50%
+    scale pass</code> &mdash; purely a memory aid
+    (<code>QueueEntry.note</code>, never read by <code>runner.py</code>)
+    for the real situation where the same script gets queued more than
+    once with different property values (e.g. one <code>ConvertVideo</code>
+    entry at full resolution, another at 50%) and the stack list alone
+    can't tell them apart. Double-click any stack entry, or right-click it
+    &gt; <strong>Edit Note...</strong>, to set or clear its note; saved
+    immediately, same autosave as everything else in the stack.</p>
+
+    <h2 id="named-queues">Named queues</h2>
+    <p>Beyond the always-on autosave (see
+    <a href="#templates-and-autosave">Templates and autosave</a>), a
+    queue &mdash; the whole <code>BatchQueue</code>: files plus both
+    stacks &mdash; can be saved under a name and reloaded later, from the
+    <strong>File menu</strong> (Save Queue / Save Queue As... / Load
+    Queue... &mdash; opens a small searchable picker,
+    <code>queue_picker_dialog.py</code>) or the <strong>Saved queue
+    dropdown</strong> next to the Batch Queue panel's own header (an
+    editable combo with a substring-filtering <code>QCompleter</code>;
+    picking one loads it immediately, live-write style, no confirmation
+    prompt).</p>
+    <div class="note warn">
+      <strong>Not</strong> the stack's own right-click menu &mdash; that
+      saves/loads a <a href="#module-stacks">module stack</a> instead
+      (scripts only, no files). An earlier pass wired the stack's context
+      menu to this whole-queue save/load, which real use confirmed was
+      genuinely confusing ("lets differenciate save/load queue from
+      queued modules, and queued files, it can get confusing") &mdash;
+      each concept now has its own, clearly separate save/load path.
+    </div>
+    <p>A saved queue <strong>is</strong> a template file &mdash; saving/
+    loading by name are thin wrappers around
+    <code>model.save_template()</code>/<code>load_template()</code>, the
+    same JSON shape the temp autosave already uses, just under a chosen
+    name (sanitized to a safe filename) instead of always
+    <code>temp_template.json</code>. Loading a queue also becomes the new
+    live working state (mirrored to the temp autosave immediately), and
+    <code>KEY_CURRENT_TEMPLATE</code> persists which name is "current"
+    across restarts.</p>
+    <p><strong>Module-stack conflict prompt</strong>: if the queue being
+    loaded carries a module stack AND the current working queue already
+    has one of its own, loading unconditionally would silently overwrite
+    scripts already queued &mdash; so this asks first (<strong>Load
+    Both</strong> / <strong>Files Only</strong> / <strong>Cancel</strong>).
+    Skipped entirely when there's nothing real to lose (either side has
+    no module stack yet).</p>
+
+    <h2 id="module-stacks">Module stacks</h2>
+    <p>Just the two script stacks (Pre-Process + Script Queue) &mdash; no
+    files at all, and a genuinely separate save slot from
+    <a href="#named-queues">Named queues</a> above (its own folder,
+    <code>schema.module_stacks_dir()</code>, never mixed with whole-queue
+    template names even on a name collision). Save/load a module stack
+    from the <strong>Modules menu</strong> (Save Module Stack / Save
+    Module Stack As... / Load Module Stack...) or the <strong>stack
+    right-click</strong> (the same three actions, in both the Pre-Process
+    and Script Queue tabs' own context menus &mdash; you're already
+    looking at the stack when you want to save what you just built, or
+    swap in a different one, without touching whatever files happen to be
+    queued).</p>
+    <p><code>model.save_module_stack()</code>/<code>load_module_stack()</code>
+    write/read just <code>{"pre_process_queue": [...], "script_queue": [...]}</code>
+    &mdash; no <code>file_queue</code> key at all, so loading one can never
+    touch the file list. <code>BatchQueue.set_module_stack()</code>
+    applies a loaded stack onto the live working queue, <code>file_queue</code>
+    left exactly as it was. <code>KEY_CURRENT_MODULE_STACK</code> persists
+    which name is "current," the same way <code>KEY_CURRENT_TEMPLATE</code>
+    does for whole queues.</p>
+
+    <h2 id="preview-clips">Preview Clips</h2>
+    <p>Batch is deliberately file-agnostic everywhere else in the queue
+    (see <a href="#core-concept">Core concept</a> &mdash; it never opens,
+    inspects, or assumes anything about a queued file in general), but
+    the context menu is still smart about what a given file actually
+    <em>is</em>: right-click a queued file, and
+    <strong>Preview Clips...</strong> only appears at all for a
+    <code>.ma</code>/<code>.mb</code> Maya scene &mdash; Batch inspects
+    the file's own extension to offer exactly the one action that's
+    actually meaningful for that file type, rather than showing every
+    action on every file regardless of relevance.</p>
+    <p><img src="assets/img/Batch_Maya_ClipPreviewer.gif" alt="CF Batch offering Preview Clips only for a queued Maya scene, opening CF Clip Previewer against the AnimHub clip library scoped to that scene without opening it"></p>
+    <p>Choosing it calls
+    <code>clip_previewer_window.main(scene_path=path)</code> &mdash;
+    explicit, repeated user preference: <strong>Batch itself never
+    opens the scene</strong>, ever, for this. That's a deliberate
+    constraint on <a href="app-animhub.html">CF Clip Previewer</a> (the
+    actual tool), not something worked around in Batch:</p>
+    <ul>
+      <li><code>show_scene(scene_path)</code> &mdash; if
+        <code>scene_path</code> is already the currently open scene, this
+        is just a normal live view. Otherwise the window switches into
+        <strong>external-scene mode</strong>: tiles come from the
+        <em>union</em> of two sources, neither one alone being enough
+        &mdash;
+        <code>ma_clip_scan.scan_ma_file_for_clips(scene_path)</code> (a
+        plain <strong>text</strong> scan of the <code>.ma</code> file's
+        own <code>createNode</code>/<code>setAttr</code> lines for
+        <code>CF_ClipName</code>/<code>CF_ClipStart</code>/<code>CF_ClipEnd</code>
+        &mdash; real clip names and ranges, no <code>cmds</code> calls, no
+        live <code>CFClip</code>, works even for a scene that's
+        <em>never</em> had a preview generated) and
+        <code>clip_preview.list_cached_clips_for_scene(scene_path)</code>
+        (whatever preview images are already captured on disk, plus a
+        fallback for <code>.mb</code> scenes the text scan can't read at
+        all). Tiles are read-only <code>_CachedOnlyTile</code>s:
+        thumbnail animates on hover if one's cached, "No Preview"
+        otherwise, name + range as a tooltip, no
+        sync/generate/export/play (those all need real clip nodes). A
+        banner names the scene and offers <strong>Open This Scene</strong>
+        as an explicit, opt-in escape hatch back into full interactivity
+        &mdash; never automatic, and still the only way to actually
+        <em>capture</em> a new preview.</li>
+      <li>Leaving external-scene mode (Open This Scene, or the real Maya
+        scene changing under it) force-opens and drops straight back into
+        the normal live view for whatever's now open.</li>
+    </ul>
+    <p><strong><code>ma_clip_scan.py</code> is deliberately narrow</strong>,
+    not a general Maya ASCII parser: CF owns the exact schema being read
+    (three attributes Batch itself always writes the same way via
+    <code>CFClip.create()</code>), so this reads Maya's own stable,
+    well-established text convention for a simple
+    <code>createNode network</code> +
+    <code>addAttr</code>/<code>setAttr</code> block &mdash; not attempting
+    references, connections, or compound attributes in general, which
+    genuinely would be fragile against Maya version/format drift.
+    Verified against a real Maya-written <code>.ma</code> file, not just
+    an assumed format (see <code>test_ma_clip_scan.py</code>'s own
+    end-to-end test).</p>
+    <div class="note warn">
+      <strong>Fixed at the storage layer too:</strong> an earlier version
+      read cached previews straight off disk without scoping by scene at
+      all &mdash; two different scenes saved next to each other shared one
+      bare <code>_previews/&lt;clip_name&gt;/</code> folder and mixed
+      clips together. <code>clip_preview.preview_dir_for_clip()</code>
+      now scopes by scene name as well as directory
+      (<code>_previews/&lt;scene_stem&gt;/&lt;clip_name&gt;/</code>),
+      which is what makes reading the cache correct without opening
+      anything.
+    </div>
+
+    <h2 id="run-semantics">Run semantics</h2>
+    <p><code>runner.process_queue(queue, library, progress_callback=None)</code>:</p>
+    <ol>
+      <li>Every <strong>enabled</strong> pre-process entry runs once,
+        <code>file_path=None</code>, in stack order.</li>
+      <li>If the file queue is empty but there are enabled per-file
+        entries, those still run once each with
+        <code>file_path=None</code> &mdash; useful for scene-agnostic
+        operations.</li>
+      <li>Otherwise, every queued file gets every enabled per-file entry,
+        in order. <code>ScriptSkipRemaining</code> aborts only the
+        <em>current file's</em> remaining entries; the next file still
+        runs in full.</li>
+    </ol>
+    <p>A script returning <code>False</code> fails that step; anything
+    else (<code>True</code>/<code>None</code>/truthy) counts as success.
+    Every run produces a <code>RunResult</code> per step and a structured
+    JSON log
+    (<code>~/Documents/CoreFlow/Batch/Logs/CFBatch_&lt;timestamp&gt;_log.json</code>,
+    opened via <strong>Open Logs Folder</strong>).</p>
+
+    <h2 id="templates-and-autosave">Templates and autosave</h2>
+    <p>The working queue mirrors itself to
+    <code>~/Documents/CoreFlow/Batch/Templates/temp_template.json</code>
+    on every mutation (add/remove/reorder/enable/property edit) and
+    reloads from it on launch, so the working queue survives a Maya
+    restart. <code>model.save_template()</code>/<code>load_template()</code>
+    work with any path, for named/exported templates.</p>
+    <p>Storage lives outside <code>UserConfig</code> on purpose: CoreTools'
+    own config layer only round-trips scalars and flat lists cleanly (see
+    <code>core/config.py</code>), and a queue is neither &mdash; so the
+    queue, templates, and tag index are plain JSON files, while favorites
+    (a flat list) go through <code>UserConfig</code> as usual.</p>
+
+    <h2 id="ffmpeg">FFmpeg</h2>
+    <p><code>ffmpeg_tool.py</code> resolves an <code>ffmpeg.exe</code>
+    path in order: an explicit override (Settings &gt; Batch), a
+    bundled copy next to this package, then whatever <code>ffmpeg</code>
+    resolves to on <code>PATH</code> &mdash; raising a clear error only if
+    none of those exist &mdash; no hardcoded machine-specific binary path
+    required.</p>
+    <p><strong>Rescaling</strong> (<code>FFmpeg/ConvertVideo</code>'s own
+    <code>resolution</code> field, <code>resolve_scale_filter()</code>)
+    accepts several friendly forms, converted to a real
+    <code>-vf scale=...</code> argument: <code>"1920x1080"</code>
+    (converted to ffmpeg's own colon syntax), ffmpeg's native
+    <code>"W:H"</code> directly (<code>-1</code> on either side preserves
+    aspect ratio, e.g. <code>"1280:-1"</code>), a percentage
+    (<code>"50%"</code> &rarr; <code>scale=iw*0.5:ih*0.5</code>), or a
+    full raw filter string (containing <code>"="</code>, passed through
+    unchanged).</p>
+    <div class="note warn">
+      <strong>Fixes a real bug:</strong> the field's own original
+      placeholder example (<code>"1920x1080"</code>) produced
+      <code>-vf scale=1920x1080</code>, which ffmpeg rejects outright
+      &mdash; the <code>scale</code> filter takes colon-separated values,
+      not the <code>x</code> shorthand <code>-s</code> uses. Also guards a
+      second one: pairing <code>video_codec: "copy"</code> with a
+      resolution used to emit <code>-c:v copy</code> alongside
+      <code>-vf scale=...</code>, which ffmpeg refuses ("Filtering and
+      streamcopy cannot be used together") &mdash; scaling now forces a
+      real encode, omitting <code>-c:v</code> entirely so ffmpeg picks its
+      own default encoder rather than guessing one.
+    </div>
+
+    <h2 id="shipped-scripts">Shipped scripts</h2>
+    <div class="table-wrap">
+    <table>
+      <tr><th>Script</th><th>Tags</th><th>Purpose</th></tr>
+      <tr><td><code>FFmpeg/ConvertVideo</code></td><td>ffmpeg, video, convert, media</td><td>Full option set &mdash; format/codec/preset/crf/bitrate/resolution (scale)/fps/trim/overwrite/extra args.</td></tr>
+      <tr><td><code>Maya/OpenScene</code></td><td>maya, scene, open</td><td>Opens the queued file as the current Maya scene &mdash; the explicit first step for any per-file Maya operation.</td></tr>
+      <tr><td><code>Maya/SaveSceneAs</code></td><td>maya, scene, save, export</td><td>Saves the current scene under a new name/location/format.</td></tr>
+      <tr><td><code>AnimHub/ExportClips</code></td><td>maya, animhub, export, fbx, clips</td><td>Runs CF AnimHub's own "Export Clips" against the current scene, via <code>export_pipeline.py</code> (the same pipeline AnimHub's own toolbar action calls) &mdash; <code>force_all</code> toggles checked-only vs. every non-Ignore clip. Same "acts on whatever's currently open" convention as <code>Maya/SaveSceneAs</code>.</td></tr>
+      <tr><td><code>Python/RunSnippet</code></td><td>python, snippet, utility</td><td>Runs a pasted snippet with <code>file_path</code>/<code>cmds</code> in scope &mdash; the generic escape hatch, and the exact pattern <code>BatchAPI.create_script()</code> writes into.</td></tr>
+    </table>
+    </div>
+
+    <h2 id="ai-companion-integration">AI Companion integration</h2>
+    <p>The corner AI button opens the
+    <a href="app-ai-companion.html">AI Companion</a>, bound with
+    <code>batch</code> (<code>BatchAPI</code>) and a short primer
+    describing the library/queue state. As with every other CF Tools AI
+    integration: the AI proposes Python, you review it, and only after you
+    click Run does anything touch disk.</p>
+    <ul>
+      <li><code>list_scripts()</code> / <code>search_scripts(text, tag)</code>
+        / <code>list_tags()</code> / <code>script_info(path)</code>
+        &mdash; discovery.</li>
+      <li><code>create_script(name, code, category="AI", tags=None, tool_tip="")</code>
+        &mdash; writes a new script file (must define
+        <code>main(args, **kwargs)</code>) and registers it, returning its
+        display path for a follow-up <code>queue_script()</code> call.
+        Always lands in the <code>"AI"</code> category folder by default
+        and always carries an <code>"ai"</code> tag regardless of whatever
+        else <code>tags</code> supplies (or doesn't) &mdash; every script
+        this method ever produces stays easy to find/filter/audit later as
+        "AI wrote this."</li>
+      <li><code>queue_script(path, pre_process=False, input_variables=None)</code>
+        / <code>set_script_enabled(index, enabled, pre_process=False)</code>
+        / <code>add_files(paths)</code> / <code>list_queue()</code> /
+        <code>clear_queue()</code>.</li>
+      <li><code>ffmpeg_path()</code> &mdash; the real <code>ffmpeg.exe</code>
+        CF Batch itself would resolve (Settings &gt; CF Batch override,
+        then a bundled copy, then <code>ffmpeg</code> on PATH &mdash; see
+        <a href="#ffmpeg">FFmpeg</a> &mdash;
+        <code>ffmpeg_tool.resolve_ffmpeg()</code> under the hood), raising
+        <code>FileNotFoundError</code> with a clear message if nothing
+        resolves. Only valid in the <strong>outer</strong> script (see
+        below) &mdash; never hardcode the bare string <code>"ffmpeg"</code>
+        and assume it's on PATH, it usually isn't.</li>
+    </ul>
+    <div class="note warn">
+      <strong>Two separate execution contexts, easy to conflate:</strong>
+      <code>batch</code> (and every <code>batch.&lt;method&gt;()</code>
+      call, <code>ffmpeg_path()</code> included) exists ONLY in the outer
+      script &mdash; the one that runs once, immediately, when the user
+      clicks Run. The <code>code</code> string passed to
+      <code>create_script()</code> becomes a completely separate,
+      standalone <code>.py</code> file CF Batch's own runner imports and
+      calls <code>main(args, **kwargs)</code> on <em>later</em>, per
+      queued file &mdash; <code>batch</code> is <strong>not</strong>
+      defined in that context at all. <strong>Regression guard for a real
+      reported bug:</strong> the AI put <code>batch.ffmpeg_path()</code>
+      (and, separately, <code>batch.list_queue()</code> to go fetch "the
+      current file") <em>inside</em> <code>create_script()</code>'s own
+      <code>code</code> string &mdash; the queued run then failed
+      immediately with <code>NameError: name 'batch' is not defined</code>
+      the moment CF Batch's runner actually executed it. Inside
+      <code>code</code>, <code>args</code> <strong>already is</strong>
+      the current file's path (the runner calls
+      <code>main(file_path, **entry.input_variables)</code> per file
+      &mdash; no need, and no way, to ask <code>batch</code> for it); if
+      that inner script needs ffmpeg, it must resolve it independently
+      with its own import &mdash;
+      <code>from CoreTools.dcc.maya.batch import ffmpeg_tool</code> then
+      <code>ffmpeg_tool.resolve_ffmpeg()</code> &mdash; not
+      <code>batch.ffmpeg_path()</code>.
+    </div>
+    <div class="note warn">
+      <strong>This mistake recurred across multiple separate AI-generated
+      scripts even after the primer note above was added</strong> &mdash;
+      prompt wording alone proved unreliable, so <code>create_script()</code>
+      itself now rejects any <code>code</code> that contains a
+      <code>batch.&lt;method&gt;(...)</code>-shaped call, raising
+      <code>ValueError</code> immediately (before the broken script is
+      ever written to disk or queued) with a message explaining the same
+      <code>args</code>-is-the-file-path / independent-ffmpeg-resolution
+      fix inline. Same lesson as every other curated-API safety fix in
+      this codebase: once a mistake survives an explicit primer
+      instruction more than once, the fix moves from prompt wording to
+      code that actually catches it.
+    </div>
+    <div class="note warn">
+      <strong>Inside <code>code</code>, prefer letting a genuinely
+      unrecoverable, clearly-explainable error (like ffmpeg not being
+      configured) propagate</strong> rather than catching it with a
+      <code>print()</code>-then-<code>return False</code>. The Process
+      Queue summary dialog only ever shows a generic "main() returned
+      False" for a plain <code>False</code> return &mdash; the
+      <code>print()</code> text is invisible there, reachable only by
+      digging through the Script Editor. An uncaught exception's own
+      message (e.g. <code>ffmpeg_tool.resolve_ffmpeg()</code>'s "No
+      ffmpeg binary found. Set an explicit path in Settings &gt; CF
+      Batch...") surfaces directly in that dialog instead, which is what
+      the user actually needs to see to fix the problem.
+    </div>
+    <div class="note warn">
+      <strong>Regression guard for a real reported bug:</strong> asked to
+      "create a module and add it to the batch script queue," the AI never
+      called <code>create_script()</code>/<code>queue_script()</code> at
+      all &mdash; it hallucinated <code>import coreflow</code> and a
+      nonexistent <code>coreflow.batch_queue</code>/
+      <code>register_batch_script()</code> API, silently falling back to a
+      throwaway local list when the (nonexistent) import failed. The
+      primer now says <code>batch</code> is already a bound local variable
+      (not something to import), explicitly rules out
+      <code>coreflow</code>/<code>batch_queue</code> by name, and gives a
+      concrete, complete <code>create_script()</code> +
+      <code>queue_script()</code> worked example &mdash; the same "name the
+      real method, rule out the plausible wrong guess" fix CF AnimHub's own
+      primer needed once already for
+      <code>clips.create()</code>/<code>cmds.clip()</code>.
+    </div>
+    <div class="note warn">
+      <strong>Deliberately no "run the queue now" method</strong> &mdash;
+      the one bulk/potentially destructive action (a run can overwrite
+      files, convert media, or execute arbitrary per-file code across an
+      entire queue) stays human-only-triggered, on top of the AI
+      Companion's existing "AI never touches anything until a human
+      clicks Run" boundary. This mirrors the same boundary AnimHub's own
+      <code>ClipsAPI</code> draws around <code>export()</code>.
+    </div>
+    <p><code>create_script()</code> doesn't open a new trust boundary
+    either: the <code>code</code> string it writes is part of the same
+    reviewed Python snippet a human already reads and approves before Run
+    &mdash; the only real difference from any other curated call is that
+    the result is a reusable file on disk rather than a one-off scene
+    edit. It still can't execute anything on its own until a human runs it
+    from the UI or queues it and clicks <strong>Process Queue</strong>,
+    exactly like any other library script.</p>
+
+    <footer class="doc-footer">
+      <span>&larr; <a href="index.html">Back to overview</a></span>
+      <span>Source: <code>docs/apps/cf_batch.md</code></span>
+    </footer>
+  </main>
+</div>
+<footer class="site-footer">
+  Selected technical documentation for Core Flow Tools, an independent R&amp;D
+  project. &middot; <a href="../">&larr; Back to the case study</a>
+</footer>
+</body>
+</html>

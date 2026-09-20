@@ -23,6 +23,7 @@
       <h6 class="tier"><span class="tier-index">1</span>Applications</h6>
       <ul>
         <li><a href="app-animhub.html">AnimHub</a></li>
+        <li><a href="app-batch.html">Batch</a></li>
         <li><a href="app-character-setup.html">Character Setup</a></li>
         <li><a href="app-quicklaunch.html">QuickLaunch</a></li>
         <li><a href="app-utilities.html">Utilities</a></li>
@@ -209,6 +210,29 @@ class AIResponse:
       <li>No domain restriction on what nodes it can touch, but told to be
         precise (scope to a clear name pattern or the current selection)
         rather than acting broadly or guessing.</li>
+      <li>Explains what a "Current context:" section in the user's own
+        message means (see <code>build_user_message()</code> above): real,
+        already-bound variables an embedding app supplied
+        (<code>clips</code>, <code>batch</code>, etc.), named explicitly
+        &mdash; not a hint to go find something similar. Told to call
+        their own curated methods directly, never <code>import</code>
+        anything to reach one (no <code>import coreflow</code>, no
+        similar guess), and to fall back to plain <code>cmds</code> (or
+        say plainly in <code>explanation</code> that the app doesn't
+        expose that yet) rather than inventing a plausible-sounding API
+        that silently does nothing. <strong>Regression guard for a real,
+        twice-reported bug</strong>: asked to create a script and queue
+        it in Batch, the model hallucinated a fake
+        <code>import coreflow</code> / <code>coreflow.batch_queue</code>
+        API &mdash; nothing about it touched the real script library or
+        queue. This paragraph is the shared, cross-provider fix (every
+        app's AI integration goes through this one prompt); each
+        embedding app's own <code>context_provider</code> still carries
+        the domain-specific half of the fix &mdash; see e.g. Batch's
+        own <code>_ai_context_summary()</code>, which also had to add an
+        explicit "don't just run the requested behavior directly,
+        register it" rule after the shared fix alone still wasn't enough
+        to stop a too-literal reading of a "print X" request.</li>
       <li>Hard rules: always call <code>propose_script</code> (never respond with
         plain text); avoid unnecessary imports; never call
         <code>cmds.file(save=True)</code>; never touch the filesystem outside
